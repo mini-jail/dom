@@ -1,4 +1,4 @@
-import { signal, SignalHandler } from "https://raw.githubusercontent.com/mini-jail/signals/main/mod.ts"
+import { signal, Signal } from "https://raw.githubusercontent.com/mini-jail/signals/main/mod.ts"
 import {
   addElement,
   addEvent,
@@ -8,7 +8,7 @@ import {
   setAttribute,
 } from "./mod.ts"
 
-const App = component((text: SignalHandler<string>) => {
+const App = component((text: Signal<string>) => {
   addElement("h2", () => {
     setAttribute("style", "color: pink")
     addText("nicer dicer evolution")
