@@ -18,5 +18,8 @@
         "no-explicit-any"
       ]
     }
+  },
+  "tasks": {
+    "dev": "deno bundle --watch ./app.ts ./app.js"
   }
 }

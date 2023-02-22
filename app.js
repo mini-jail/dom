@@ -232,53 +232,50 @@ function use(context) {
     return lookup(parentNode, context.id) || context.defaultValue;
 }
 context.use = use;
+const logEl = document.createElement("div");
+logEl.style.padding = "8px";
+logEl.style.backgroundColor = "black";
+logEl.style.color = "white";
+logEl.style.borderRadius = "8px";
+logEl.style.margin = "8px";
+logEl.style.position = "sticky";
+logEl.style.bottom = "0px";
+logEl.style.left = "0px";
+logEl.onclick = ()=>logEl.textContent = "";
+document.body.appendChild(logEl);
+console.log = (...data)=>{
+    logEl.appendChild(new Text(data.map((data)=>String(data)).join(" ")));
+    logEl.appendChild(document.createElement("br"));
+};
+onerror = (error)=>console.log(String(error));
 let parentFgt;
 let parentElt;
-function elRef() {
-    return parentElt;
-}
 function addElement(tagName, options) {
     const previousElt = parentElt;
     const elt = document.createElement(tagName);
     if (options) {
-        effect((attributes)=>{
-            const next = [];
-            const current = Array.from(elt.childNodes);
+        effect((currentAttributes)=>{
+            const previousElt = parentElt;
             const previousFgt = parentFgt;
-            parentFgt = next;
             parentElt = elt;
-            options(attributes);
-            for(const field in attributes){
-                elt[field] = attributes[field];
-            }
-            let currentNode = null;
-            outerLoop: for(let i = 0; i < next.length; i++){
-                currentNode = current[i];
-                for(let j = 0; j < current.length; j++){
-                    if (current[j] === null) continue;
-                    else if (current[j].nodeType === 3 && next[i].nodeType === 3) {
-                        console.log("update text from %s to %s", current[j].data, next[i].data);
-                        current[j].data = next[i].data;
-                        next[i] = current[j];
-                    } else if (current[j].isEqualNode(next[i])) {
-                        console.log("same nodes");
-                        next[i] = current[j];
-                    }
-                    if (next[i] === current[j]) {
-                        current[j] = null;
-                        if (i === j) continue outerLoop;
-                        break;
+            const nextAttributes = options.length ? {} : undefined;
+            options(nextAttributes);
+            if (nextAttributes !== undefined) {
+                for(const field in nextAttributes){
+                    if (currentAttributes === undefined || currentAttributes[field] !== nextAttributes[field]) {
+                        elt[field] = nextAttributes[field];
                     }
                 }
-                elt?.insertBefore(next[i], currentNode?.nextSibling);
             }
-            while(current.length)current.pop()?.remove();
+            const nextFgt = [];
+            parentFgt = nextFgt;
+            union(elt, nextFgt);
             parentFgt = previousFgt;
-            parentElt = undefined;
-            return attributes;
-        }, {});
+            parentElt = previousElt;
+            return nextAttributes;
+        });
     }
-    if (parentFgt) parentFgt.push(elt);
+    if (parentFgt && parentElt === undefined) parentFgt.push(elt);
     else parentElt?.appendChild(elt);
     parentElt = previousElt;
 }
@@ -287,24 +284,25 @@ function addText(value) {
     if (typeof value === "function") {
         effect((previous)=>{
             const next = value();
-            console.log("previous: %s, next: %s", previous, next);
+            console.log("previous:", previous, "next:", next);
             if (next !== previous) node.data = next;
             return next;
         });
     } else {
         node.data = value;
     }
-    if (parentFgt) parentFgt.push(node);
+    if (parentFgt && parentElt === undefined) parentFgt.push(node);
     else parentElt?.appendChild(node);
 }
 function addEvent(type, callback) {
-    const elt = elRef();
+    const elt = parentElt;
+    if (elt === undefined) return;
     mount(()=>{
-        console.log("listen %s", type);
+        console.log("listen", type);
         elt?.addEventListener(type, callback);
     });
     cleanup(()=>{
-        console.log("unlisten %s", type);
+        console.log("unlisten", type);
         elt?.removeEventListener(type, callback);
     });
 }
@@ -319,6 +317,31 @@ function render(rootElt, callback) {
 }
 function component(callback) {
     return (...args)=>root(()=>callback(...args));
+}
+function union(elt, next) {
+    const current = Array.from(elt.childNodes);
+    let currentNode = null;
+    outerLoop: for(let i = 0; i < next.length; i++){
+        currentNode = current[i];
+        for(let j = 0; j < current.length; j++){
+            if (current[j] === null) continue;
+            else if (current[j].nodeType === 3 && next[i].nodeType === 3) {
+                console.log("update text from", current[j].data, "to", next[i].data);
+                current[j].data = next[i].data;
+                next[i] = current[j];
+            } else if (current[j].isEqualNode(next[i])) {
+                console.log("same nodes");
+                next[i] = current[j];
+            }
+            if (next[i] === current[j]) {
+                current[j] = null;
+                if (i === j) continue outerLoop;
+                break;
+            }
+        }
+        elt?.insertBefore(next[i], currentNode?.nextSibling);
+    }
+    while(current.length)current.pop()?.remove();
 }
 const Button = component(()=>{
     const text = signal("hello world");
