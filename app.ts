@@ -1,4 +1,7 @@
-import { signal, Signal } from "https://raw.githubusercontent.com/mini-jail/signals/main/mod.ts"
+import {
+  Signal,
+  signal,
+} from "https://raw.githubusercontent.com/mini-jail/signals/main/mod.ts"
 import {
   addElement,
   addEvent,
@@ -25,7 +28,7 @@ const App = component((text: Signal<string>) => {
 
   Button(text)
 
-  addText(() => text() === "cool" ? "sehr cool": "")
+  addText(() => text() === "cool" ? "sehr cool" : "")
 
   addElement("div", () => {
     setAttribute("style", "font-weight: bold")
@@ -44,7 +47,7 @@ const App = component((text: Signal<string>) => {
 
 render(document.body, () => {
   const text = signal("hello world")
-  
+
   setAttribute("style", "background-color: ghostwhite")
   addElement("h1", () => {
     setAttribute("style", "color: cornflowerblue")

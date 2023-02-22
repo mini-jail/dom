@@ -2,19 +2,9 @@
 // deno-lint-ignore-file
 // This code was bundled using `deno bundle` and it's not recommended to edit it manually
 
-const VALUE = 0;
-const NODE_PARENT = 1;
-const NODE_CHILDREN = 2;
-const NODE_CONTEXT = 3;
-const NODE_CLEANUPS = 4;
-const NODE_CALLBACK = 5;
-const NODE_SOURCES = 6;
-const NODE_SOURCESLOTS = 7;
-const SOURCE_NODES = 1;
-const SOURCE_NODESLOTS = 2;
 const Error = Symbol("Error");
 const Queue = new Set();
-let updateQueue;
+let nodeQueue;
 let parentNode;
 function root(callback) {
     const _node = node();
@@ -30,28 +20,29 @@ function root(callback) {
     } catch (error) {
         handleError(error);
     } finally{
-        parentNode = _node[NODE_PARENT];
+        parentNode = _node.parentNode;
     }
 }
-function node(initialValue) {
-    const _node = [
-        initialValue
-    ];
+function node(initialValue, callback) {
+    const _node = {
+        value: initialValue,
+        parentNode,
+        children: undefined,
+        context: undefined,
+        cleanups: undefined,
+        callback,
+        sources: undefined,
+        sourceSlots: undefined
+    };
     if (parentNode) {
-        _node[NODE_PARENT] = parentNode;
-        if (parentNode[2] === undefined) {
-            parentNode[NODE_CHILDREN] = [
+        if (parentNode.children === undefined) {
+            parentNode.children = [
                 _node
             ];
         } else {
-            parentNode[2].push(_node);
+            parentNode.children.push(_node);
         }
     }
-    return _node;
-}
-function computation(callback, initialValue) {
-    const _node = node(initialValue);
-    _node[NODE_CALLBACK] = callback;
     return _node;
 }
 function mount(callback) {
@@ -59,58 +50,60 @@ function mount(callback) {
 }
 function effect(callback, initialValue) {
     if (parentNode) {
-        const _node = computation(callback, initialValue);
-        if (updateQueue) updateQueue.add(_node);
+        const _node = node(initialValue, callback);
+        if (nodeQueue) nodeQueue.add(_node);
         else queueMicrotask(()=>updateNode(_node, false));
     } else {
         queueMicrotask(()=>callback(initialValue));
     }
 }
 function lookup(node, id) {
-    return node ? node[3] && id in node[3] ? node[3][id] : lookup(node[1], id) : undefined;
+    return node ? node.context && id in node.context ? node.context[id] : lookup(node.parentNode, id) : undefined;
 }
 function source(initialValue) {
-    return [
-        initialValue
-    ];
+    return {
+        value: initialValue,
+        nodes: undefined,
+        nodeSlots: undefined
+    };
 }
 function sourceValue(source, next) {
     if (arguments.length === 1) {
-        if (parentNode && parentNode[5]) {
-            const sourceSlot = source[1]?.length || 0, nodeSlot = parentNode[6]?.length || 0;
-            if (parentNode[6] === undefined) {
-                parentNode[NODE_SOURCES] = [
+        if (parentNode && parentNode.callback) {
+            const sourceSlot = source.nodes?.length || 0, nodeSlot = parentNode.sources?.length || 0;
+            if (parentNode.sources === undefined) {
+                parentNode.sources = [
                     source
                 ];
-                parentNode[NODE_SOURCESLOTS] = [
+                parentNode.sourceSlots = [
                     sourceSlot
                 ];
             } else {
-                parentNode[6].push(source);
-                parentNode[7].push(sourceSlot);
+                parentNode.sources.push(source);
+                parentNode.sourceSlots.push(sourceSlot);
             }
-            if (source[1] === undefined) {
-                source[SOURCE_NODES] = [
+            if (source.nodes === undefined) {
+                source.nodes = [
                     parentNode
                 ];
-                source[SOURCE_NODESLOTS] = [
+                source.nodeSlots = [
                     nodeSlot
                 ];
             } else {
-                source[1].push(parentNode);
-                source[2].push(nodeSlot);
+                source.nodes.push(parentNode);
+                source.nodeSlots.push(nodeSlot);
             }
         }
-        return source[0];
+        return source.value;
     }
     if (typeof next === "function") {
-        next = next(source[VALUE]);
+        next = next(source.value);
     }
-    source[VALUE] = next;
-    if (source[1]?.length) {
+    source.value = next;
+    if (source.nodes?.length) {
         batch(()=>{
-            for (const node of source[1]){
-                updateQueue.add(node);
+            for (const node of source.nodes){
+                nodeQueue.add(node);
             }
         });
     }
@@ -128,10 +121,10 @@ function handleError(error) {
 }
 function cleanup(callback) {
     if (parentNode === undefined) return;
-    else if (!parentNode[4]) parentNode[NODE_CLEANUPS] = [
+    else if (!parentNode.cleanups) parentNode.cleanups = [
         callback
     ];
-    else parentNode[4].push(callback);
+    else parentNode.cleanups.push(callback);
 }
 function untrack(callback) {
     const node = parentNode;
@@ -141,27 +134,27 @@ function untrack(callback) {
     return result;
 }
 function batch(callback) {
-    if (updateQueue) return callback();
-    updateQueue = Queue;
+    if (nodeQueue) return callback();
+    nodeQueue = Queue;
     const result = callback();
     queueMicrotask(flush);
     return result;
 }
 function flush() {
-    if (updateQueue === undefined) return;
-    for (const node of updateQueue){
-        updateQueue.delete(node);
+    if (nodeQueue === undefined) return;
+    for (const node of nodeQueue){
+        nodeQueue.delete(node);
         updateNode(node, false);
     }
-    updateQueue = undefined;
+    nodeQueue = undefined;
 }
 function updateNode(node, complete) {
     cleanNode(node, complete);
-    if (node[5] === undefined) return;
+    if (node.callback === undefined) return;
     const previousNode = parentNode;
     parentNode = node;
     try {
-        node[VALUE] = node[NODE_CALLBACK](node[0]);
+        node.value = node.callback(node.value);
     } catch (error) {
         handleError(error);
     } finally{
@@ -170,68 +163,43 @@ function updateNode(node, complete) {
 }
 function cleanNodeSources(node) {
     let source, sourceSlot, sourceNode, nodeSlot;
-    while(node[6].length){
-        source = node[NODE_SOURCES].pop();
-        sourceSlot = node[NODE_SOURCESLOTS].pop();
-        if (source[1]?.length) {
-            sourceNode = source[SOURCE_NODES].pop();
-            nodeSlot = source[SOURCE_NODESLOTS].pop();
-            if (sourceSlot < source[1].length) {
-                source[SOURCE_NODES][sourceSlot] = sourceNode;
-                source[SOURCE_NODESLOTS][sourceSlot] = nodeSlot;
-                sourceNode[NODE_SOURCESLOTS][nodeSlot] = sourceSlot;
+    while(node.sources.length){
+        source = node.sources.pop();
+        sourceSlot = node.sourceSlots.pop();
+        if (source.nodes?.length) {
+            sourceNode = source.nodes.pop();
+            nodeSlot = source.nodeSlots.pop();
+            if (sourceSlot < source.nodes.length) {
+                source.nodes[sourceSlot] = sourceNode;
+                source.nodeSlots[sourceSlot] = nodeSlot;
+                sourceNode.sourceSlots[nodeSlot] = sourceSlot;
             }
         }
     }
 }
 function cleanChildNodes(node, complete) {
-    const hasCallback = node[5] !== undefined;
+    const hasCallback = node.callback !== undefined;
     let childNode;
-    while(node[2].length){
-        childNode = node[NODE_CHILDREN].pop();
-        cleanNode(childNode, complete || hasCallback && childNode[5] !== undefined);
+    while(node.children.length){
+        childNode = node.children.pop();
+        cleanNode(childNode, complete || hasCallback && childNode.callback !== undefined);
     }
 }
 function cleanNode(node, complete) {
-    if (node[6]?.length) cleanNodeSources(node);
-    if (node[2]?.length) cleanChildNodes(node, complete);
-    if (node[4]?.length) {
-        while(node[4].length){
-            node[4].pop()();
+    if (node.sources?.length) cleanNodeSources(node);
+    if (node.children?.length) cleanChildNodes(node, complete);
+    if (node.cleanups?.length) {
+        while(node.cleanups.length){
+            node.cleanups.pop()();
         }
     }
-    delete node[3];
+    node.context = undefined;
     if (complete) {
-        delete node[0];
-        delete node[1];
-        delete node[2];
-        delete node[4];
-        delete node[5];
-        delete node[6];
-        delete node[7];
+        for(const property in node){
+            node[property] = undefined;
+        }
     }
 }
-function context(defaultValue) {
-    return {
-        id: Symbol(),
-        provide (value, callback) {
-            return provide(this, value, callback);
-        },
-        defaultValue
-    };
-}
-function provide(context, value, callback) {
-    return root(()=>{
-        parentNode[NODE_CONTEXT] = {
-            [context.id]: value
-        };
-        return callback();
-    });
-}
-function use(context) {
-    return lookup(parentNode, context.id) || context.defaultValue;
-}
-context.use = use;
 let parentFgt;
 let parentElt;
 function addElement(tagName, options) {
@@ -281,8 +249,7 @@ function union(elt, next) {
     const current = Array.from(elt.childNodes);
     const currentLength = current.length;
     const nextLength = next.length;
-    let currentNode = undefined;
-    let i, j;
+    let currentNode, i, j;
     outerLoop: for(i = 0; i < nextLength; i++){
         currentNode = current[i];
         for(j = 0; j < currentLength; j++){
