@@ -1,26 +1,45 @@
-import { signal } from "https://raw.githubusercontent.com/mini-jail/signals/main/mod.ts"
-import { addElement, addEvent, addText, component, render } from "./mod.ts"
+import { signal, SignalHandler } from "https://raw.githubusercontent.com/mini-jail/signals/main/mod.ts"
+import {
+  addElement,
+  addEvent,
+  addText,
+  component,
+  render,
+  setAttribute,
+} from "./mod.ts"
 
-const Button = component(() => {
-  const text = signal("hello world")
+const App = component((text: SignalHandler<string>) => {
+  addElement("h2", () => {
+    setAttribute("style", "color: pink")
+    addText("nicer dicer evolution")
+  })
 
   addElement("button", () => {
+    addText("klick mich")
     addEvent("click", () => text(prompt("new text")!))
+  })
 
-    if (text() === "cool") {
-      addText("sehr cool")
-    }
+  addElement("div", () => {
+    addText(() => text() === "cool" ? "sehr cool": "")
+  })
 
-    addElement("p", () => {
-      addText(text())
-    })
+  addElement("div", () => {
+    addElement("b", () => addText(text()))
+  })
 
-    addElement("p", (attr) => {
+  addElement("div", () => {
+    addElement("i", (attr) => {
       attr.textContent = "LETZTER :D"
     })
   })
 })
 
 render(document.body, () => {
-  Button()
+  const text = signal("hello world")
+  setAttribute("style", "background-color: ghostwhite")
+  addElement("h1", () => {
+    setAttribute("style", "color: cornflowerblue")
+    addText("App")
+  })
+  App(text)
 })

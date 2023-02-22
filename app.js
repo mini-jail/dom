@@ -241,77 +241,56 @@ logEl.style.margin = "8px";
 logEl.style.position = "sticky";
 logEl.style.bottom = "0px";
 logEl.style.left = "0px";
+logEl.style.height = "100px";
+logEl.style.overflow = "auto";
 logEl.onclick = ()=>logEl.textContent = "";
 document.body.appendChild(logEl);
 console.log = (...data)=>{
-    logEl.appendChild(new Text(data.map((data)=>String(data)).join(" ")));
-    logEl.appendChild(document.createElement("br"));
+    logEl.prepend(new Text(data.map((data)=>String(data)).join(" ")), document.createElement("br"));
 };
 onerror = (error)=>console.log(String(error));
 let parentFgt;
 let parentElt;
 function addElement(tagName, options) {
-    const previousElt = parentElt;
     const elt = document.createElement(tagName);
-    if (options) {
-        effect((currentAttributes)=>{
-            const previousElt = parentElt;
-            const previousFgt = parentFgt;
-            parentElt = elt;
-            const nextAttributes = options.length ? {} : undefined;
-            options(nextAttributes);
-            if (nextAttributes !== undefined) {
-                for(const field in nextAttributes){
-                    if (currentAttributes === undefined || currentAttributes[field] !== nextAttributes[field]) {
-                        elt[field] = nextAttributes[field];
-                    }
-                }
-            }
-            const nextFgt = [];
-            parentFgt = nextFgt;
-            union(elt, nextFgt);
-            parentFgt = previousFgt;
-            parentElt = previousElt;
-            return nextAttributes;
-        });
-    }
-    if (parentFgt && parentElt === undefined) parentFgt.push(elt);
-    else parentElt?.appendChild(elt);
-    parentElt = previousElt;
+    if (options) modify(elt, options);
+    if (parentElt || parentFgt) insert(elt);
 }
 function addText(value) {
     const node = new Text();
     if (typeof value === "function") {
-        effect((previous)=>{
+        effect((current)=>{
             const next = value();
-            console.log("previous:", previous, "next:", next);
-            if (next !== previous) node.data = next;
+            console.log("current:", current, "next:", next);
+            if (next !== current) node.data = next;
             return next;
         });
     } else {
         node.data = value;
     }
-    if (parentFgt && parentElt === undefined) parentFgt.push(node);
-    else parentElt?.appendChild(node);
+    insert(node);
 }
 function addEvent(type, callback) {
     const elt = parentElt;
     if (elt === undefined) return;
-    mount(()=>{
-        console.log("listen", type);
-        elt?.addEventListener(type, callback);
-    });
-    cleanup(()=>{
-        console.log("unlisten", type);
-        elt?.removeEventListener(type, callback);
-    });
+    mount(()=>elt.addEventListener(type, callback));
+    cleanup(()=>elt.removeEventListener(type, callback));
+}
+function setAttribute(name, value) {
+    const elt = parentElt;
+    if (elt === undefined) return;
+    const qualifiedName = name.replace("A-Z", "-$1".toLocaleLowerCase());
+    if (typeof value === "function") {
+        effect(()=>{
+            elt.setAttribute(qualifiedName, value());
+        });
+    } else {
+        elt.setAttribute(qualifiedName, value);
+    }
 }
 function render(rootElt, callback) {
     return root((cleanup)=>{
-        const previousElt = parentElt;
-        parentElt = rootElt;
-        callback();
-        parentElt = previousElt;
+        effect(()=>modify(rootElt, callback));
         return cleanup;
     });
 }
@@ -320,44 +299,102 @@ function component(callback) {
 }
 function union(elt, next) {
     const current = Array.from(elt.childNodes);
-    let currentNode = null;
-    outerLoop: for(let i = 0; i < next.length; i++){
+    const currentLength = current.length;
+    const nextLength = next.length;
+    let currentNode = undefined;
+    let i, j;
+    outerLoop: for(i = 0; i < nextLength; i++){
         currentNode = current[i];
-        for(let j = 0; j < current.length; j++){
-            if (current[j] === null) continue;
+        for(j = 0; j < currentLength; j++){
+            if (current[j] === undefined) continue;
             else if (current[j].nodeType === 3 && next[i].nodeType === 3) {
-                console.log("update text from", current[j].data, "to", next[i].data);
-                current[j].data = next[i].data;
+                if (current[j].data !== next[i].data) {
+                    console.log("update text from", current[j].data, "to", next[i].data);
+                    current[j].data = next[i].data;
+                }
                 next[i] = current[j];
             } else if (current[j].isEqualNode(next[i])) {
-                console.log("same nodes");
                 next[i] = current[j];
             }
             if (next[i] === current[j]) {
-                current[j] = null;
+                current[j] = undefined;
                 if (i === j) continue outerLoop;
                 break;
             }
         }
-        elt?.insertBefore(next[i], currentNode?.nextSibling);
+        console.log("insert", next[i], "before", currentNode?.nextSibling);
+        elt?.insertBefore(next[i], currentNode?.nextSibling || null);
     }
     while(current.length)current.pop()?.remove();
 }
-const Button = component(()=>{
-    const text = signal("hello world");
-    addElement("button", ()=>{
-        addEvent("click", ()=>text(prompt("new text")));
-        if (text() === "cool") {
-            addText("sehr cool");
+function attributes(elt, current, next) {
+    if (next !== undefined) {
+        if (current) {
+            for(const field in current){
+                if (next[field] === undefined) {
+                    console.log("unset attribute", field, "from", elt);
+                    elt[field] = null;
+                }
+            }
         }
-        addElement("p", ()=>{
-            addText(text());
-        });
-        addElement("p", (attr)=>{
+        for(const field1 in next){
+            if (current === undefined || current[field1] !== next[field1]) {
+                console.log("set attribute", field1, "for", elt);
+                elt[field1] = next[field1];
+            }
+        }
+    }
+}
+function insert(node) {
+    parentFgt?.push(node);
+    parentElt?.appendChild(node);
+}
+function modify(elt, options) {
+    effect((current)=>{
+        const next = options.length ? {} : undefined;
+        const previousElt = parentElt;
+        const previousFgt = parentFgt;
+        const nextFgt = parentFgt = [];
+        parentElt = elt;
+        options(next);
+        parentElt = previousElt;
+        if (current || next) {
+            attributes(elt, current, next);
+        }
+        if (nextFgt.length) {
+            union(elt, nextFgt);
+            parentFgt = previousFgt;
+        }
+        return next;
+    });
+}
+const App = component((text)=>{
+    addElement("h2", ()=>{
+        setAttribute("style", "color: pink");
+        addText("nicer dicer evolution");
+    });
+    addElement("button", ()=>{
+        addText("klick mich");
+        addEvent("click", ()=>text(prompt("new text")));
+    });
+    addElement("div", ()=>{
+        addText(()=>text() === "cool" ? "sehr cool" : "");
+    });
+    addElement("div", ()=>{
+        addElement("b", ()=>addText(text()));
+    });
+    addElement("div", ()=>{
+        addElement("i", (attr)=>{
             attr.textContent = "LETZTER :D";
         });
     });
 });
 render(document.body, ()=>{
-    Button();
+    const text = signal("hello world");
+    setAttribute("style", "background-color: ghostwhite");
+    addElement("h1", ()=>{
+        setAttribute("style", "color: cornflowerblue");
+        addText("App");
+    });
+    App(text);
 });
