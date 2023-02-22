@@ -20,6 +20,7 @@
     }
   },
   "tasks": {
-    "dev": "deno bundle --watch ./app.ts ./app.js"
+    "dev": "deno bundle --watch ./app.ts ./app.js",
+    "serve": "deno run --allow-net --allow-read https://deno.land/std@0.177.0/http/file_server.ts"
   }
 }
