@@ -7,7 +7,9 @@ import {
   root,
 } from "https://raw.githubusercontent.com/mini-jail/signals/main/mod.ts"
 
-export type DOMNode = (Node | HTMLElement | SVGElement | ParentNode | ChildNode) & Record<string,any>
+export type DOMNode =
+  & (Node | HTMLElement | SVGElement | ParentNode | ChildNode)
+  & Record<string, any>
 export type Attributes = Record<string, any>
 export type HTMLElementOptionMap = {
   [TagName in keyof HTMLElementTagNameMap]: ElementCallback<Attributes>
@@ -95,7 +97,7 @@ export function component<T extends (...args: any[]) => any>(
 }
 
 function union(elt: DOMNode, next: DOMNode[]) {
-  const current: (DOMNode |undefined)[] = Array.from(elt.childNodes)
+  const current: (DOMNode | undefined)[] = Array.from(elt.childNodes)
   const currentLength = current.length
   const nextLength = next.length
   let currentNode: DOMNode | undefined = undefined
