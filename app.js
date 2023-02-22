@@ -232,23 +232,6 @@ function use(context) {
     return lookup(parentNode, context.id) || context.defaultValue;
 }
 context.use = use;
-const logEl = document.createElement("div");
-logEl.style.padding = "8px";
-logEl.style.backgroundColor = "black";
-logEl.style.color = "white";
-logEl.style.borderRadius = "8px";
-logEl.style.margin = "8px";
-logEl.style.position = "sticky";
-logEl.style.bottom = "0px";
-logEl.style.left = "0px";
-logEl.style.height = "100px";
-logEl.style.overflow = "auto";
-logEl.onclick = ()=>logEl.textContent = "";
-document.body.appendChild(logEl);
-console.log = (...data)=>{
-    logEl.prepend(new Text(data.map((data)=>String(data)).join(" ")), document.createElement("br"));
-};
-onerror = (error)=>console.log(String(error));
 let parentFgt;
 let parentElt;
 function addElement(tagName, options) {
@@ -261,7 +244,6 @@ function addText(value) {
     if (typeof value === "function") {
         effect((current)=>{
             const next = value();
-            console.log("current:", current, "next:", next);
             if (next !== current) node.data = next;
             return next;
         });
@@ -281,9 +263,7 @@ function setAttribute(name, value) {
     if (elt === undefined) return;
     const qualifiedName = name.replace("A-Z", "-$1".toLocaleLowerCase());
     if (typeof value === "function") {
-        effect(()=>{
-            elt.setAttribute(qualifiedName, value());
-        });
+        effect(()=>elt.setAttribute(qualifiedName, value()));
     } else {
         elt.setAttribute(qualifiedName, value);
     }
@@ -307,9 +287,8 @@ function union(elt, next) {
         currentNode = current[i];
         for(j = 0; j < currentLength; j++){
             if (current[j] === undefined) continue;
-            else if (current[j].nodeType === 3 && next[i].nodeType === 3) {
+            if (current[j].nodeType === 3 && next[i].nodeType === 3) {
                 if (current[j].data !== next[i].data) {
-                    console.log("update text from", current[j].data, "to", next[i].data);
                     current[j].data = next[i].data;
                 }
                 next[i] = current[j];
@@ -322,7 +301,6 @@ function union(elt, next) {
                 break;
             }
         }
-        console.log("insert", next[i], "before", currentNode?.nextSibling);
         elt?.insertBefore(next[i], currentNode?.nextSibling || null);
     }
     while(current.length)current.pop()?.remove();
@@ -332,14 +310,12 @@ function attributes(elt, current, next) {
         if (current) {
             for(const field in current){
                 if (next[field] === undefined) {
-                    console.log("unset attribute", field, "from", elt);
                     elt[field] = null;
                 }
             }
         }
         for(const field1 in next){
             if (current === undefined || current[field1] !== next[field1]) {
-                console.log("set attribute", field1, "for", elt);
                 elt[field1] = next[field1];
             }
         }
