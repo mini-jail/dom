@@ -100,8 +100,7 @@ function union(elt: DOMNode, next: DOMNode[]) {
   const current: (DOMNode | undefined)[] = Array.from(elt.childNodes)
   const currentLength = current.length
   const nextLength = next.length
-  let currentNode: DOMNode | undefined = undefined
-  let i: number, j: number
+  let currentNode: DOMNode | undefined, i: number, j: number
   outerLoop:
   for (i = 0; i < nextLength; i++) {
     currentNode = current[i]
