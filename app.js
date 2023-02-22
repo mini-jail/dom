@@ -322,7 +322,7 @@ function attributes(elt, current, next) {
     }
 }
 function insert(node) {
-    parentFgt?.push(node);
+    if (parentElt === undefined) parentFgt?.push(node);
     parentElt?.appendChild(node);
 }
 function modify(elt, options) {
@@ -344,26 +344,32 @@ function modify(elt, options) {
         return next;
     });
 }
+const Button = component((text)=>{
+    addElement("div", ()=>{
+        addElement("button", ()=>{
+            addText("klick mich");
+            addEvent("click", ()=>text(prompt("new text")));
+        });
+    });
+});
 const App = component((text)=>{
     addElement("h2", ()=>{
         setAttribute("style", "color: pink");
         addText("nicer dicer evolution");
     });
-    addElement("button", ()=>{
-        addText("klick mich");
-        addEvent("click", ()=>text(prompt("new text")));
-    });
+    Button(text);
+    addText(()=>text() === "cool" ? "sehr cool" : "");
     addElement("div", ()=>{
-        addText(()=>text() === "cool" ? "sehr cool" : "");
-    });
-    addElement("div", ()=>{
-        addElement("b", ()=>addText(text()));
+        setAttribute("style", "font-weight: bold");
+        addText(text);
     });
     addElement("div", ()=>{
         addElement("i", (attr)=>{
             attr.textContent = "LETZTER :D";
+            addText(text);
         });
     });
+    addText(text);
 });
 render(document.body, ()=>{
     const text = signal("hello world");

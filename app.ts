@@ -8,34 +8,43 @@ import {
   setAttribute,
 } from "./mod.ts"
 
+const Button = component((text: Signal<string>) => {
+  addElement("div", () => {
+    addElement("button", () => {
+      addText("klick mich")
+      addEvent("click", () => text(prompt("new text")!))
+    })
+  })
+})
+
 const App = component((text: Signal<string>) => {
   addElement("h2", () => {
     setAttribute("style", "color: pink")
     addText("nicer dicer evolution")
   })
 
-  addElement("button", () => {
-    addText("klick mich")
-    addEvent("click", () => text(prompt("new text")!))
-  })
+  Button(text)
+
+  addText(() => text() === "cool" ? "sehr cool": "")
 
   addElement("div", () => {
-    addText(() => text() === "cool" ? "sehr cool": "")
-  })
-
-  addElement("div", () => {
-    addElement("b", () => addText(text()))
+    setAttribute("style", "font-weight: bold")
+    addText(text)
   })
 
   addElement("div", () => {
     addElement("i", (attr) => {
       attr.textContent = "LETZTER :D"
+      addText(text)
     })
   })
+
+  addText(text)
 })
 
 render(document.body, () => {
   const text = signal("hello world")
+  
   setAttribute("style", "background-color: ghostwhite")
   addElement("h1", () => {
     setAttribute("style", "color: cornflowerblue")
