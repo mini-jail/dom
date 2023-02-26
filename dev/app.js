@@ -510,4 +510,3 @@ const Dot = component((x, y, target)=>{
         };
     });
 });
-export { onEvent as onEvent };

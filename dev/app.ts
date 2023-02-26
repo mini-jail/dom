@@ -1,7 +1,7 @@
 import { computed, inject, onDestroy, onMount, provider, signal } from "signals"
 import { addElement, component, render, text } from "mod"
 
-export function onEvent<T extends keyof GlobalEventHandlersEventMap>(
+function onEvent<T extends keyof GlobalEventHandlersEventMap>(
   name: T,
   callback: (event: GlobalEventHandlersEventMap[T]) => void,
   options?: EventListenerOptions,
