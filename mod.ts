@@ -30,6 +30,14 @@ export function addText(value: any): void {
   if (parentElt || parentFgt) insert(new Text(String(value)))
 }
 
+export function text(strings: TemplateStringsArray, ...values: any[]): void {
+  addText(
+    strings.reduce((result, string, i) => {
+      return result += string + (i in values ? values[i] : "")
+    }, ""),
+  )
+}
+
 export function addSVGElement<T extends keyof SVGElementTagNameAttributeMap>(
   tagName: T,
   callback: ElementCallback<SVGElementTagNameAttributeMap[T]>,
@@ -109,7 +117,7 @@ function objectAttribute(
   if (Fields.size === 0) return
   for (const subField of Fields) {
     if (next && typeof next[subField] === "function") {
-      effect((subCurr: unknown) => {
+      effect<unknown>((subCurr) => {
         const subNext = next[subField]()
         if (subNext !== subCurr) elt[field][subField] = subNext
         return subNext
@@ -128,7 +136,7 @@ function dynamicAttribute(
   field: string,
   accessor: () => unknown,
 ): void {
-  effect((curr: unknown) => {
+  effect<unknown>((curr) => {
     const next = accessor()
     if (next !== curr) attribute(elt, field, curr, next)
     return next
@@ -172,7 +180,7 @@ function addFields(object: any): void {
 
 function attributes(
   elt: DOMElement,
-  curr: Record<string, any>,
+  curr: Record<string, any> | undefined,
   next: Record<string, any>,
 ): void {
   if (curr) addFields(curr)
@@ -195,19 +203,19 @@ function children(
   else if (next.length) elt.append(...next)
 }
 
-function modify(elt: DOMElement, callback: ElementCallback<any>) {
-  effect((curr: Modify) => {
-    const next: Modify = [curr[0] ? {} : undefined]
+function modify(elt: DOMElement, callback: ElementCallback<any>): void {
+  effect<Modify | undefined>((curr) => {
+    const next: Modify = [callback.length ? {} : undefined, []]
     parentElt = elt
-    parentFgt = next[1] = []
+    parentFgt = next[1]!
     callback(next[0])
-    if (curr[0] || next[0]) attributes(elt, curr[0]!, next[0]!)
-    if (curr[1] || next[1].length) children(elt, curr[1], next[1])
-    if (next[1].length === 0) next.length = 1
+    if (next[0]) attributes(elt, curr ? curr[0] : undefined, next[0]!)
+    if (next[1]!.length) children(elt, curr ? curr[1] : undefined, next[1]!)
+    if (next[1]!.length === 0) next[1] = undefined
     parentElt = undefined
     parentFgt = undefined
     return next
-  }, [callback.length ? {} : undefined])
+  })
 }
 
 type Accessable<T> = T | (() => T)

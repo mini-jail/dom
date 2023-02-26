@@ -1,5 +1,5 @@
 import { computed, inject, onDestroy, onMount, provider, signal } from "signals"
-import { addElement, component, render } from "mod"
+import { addElement, component, render, text } from "mod"
 
 export function onEvent<T extends keyof GlobalEventHandlersEventMap>(
   name: T,
@@ -16,12 +16,14 @@ const TriangleContext = provider(() => {
   const count = signal(0)
   const interval = signal(1000)
   const size = signal(25)
+  const dots = signal(0)
   return {
     target,
     elapsed,
     count,
     interval,
     size,
+    dots,
     scale: computed(() => {
       const e = (elapsed() / 1000) % 10
       return 1 + (e > 5 ? 10 - e : e) / 10
@@ -35,11 +37,12 @@ render(document.body, () => {
   onEvent("keyup", ({ key }) => {
     switch (key) {
       case "ArrowUp": {
-        size(size() + 50)
+        size(size() + 5)
         break
       }
       case "ArrowDown": {
-        size(size() - 50)
+        const next = size() - 5
+        if (next >= 5) size(next)
         break
       }
       case "ArrowLeft": {
@@ -53,7 +56,29 @@ render(document.body, () => {
     }
   })
 
+  Stats()
+
   TriangleDemo(target(), size(), interval())
+})
+
+const Stats = component(() => {
+  const { target, size, interval, dots } = inject(TriangleContext)
+
+  addElement("pre", (attr) => {
+    attr.style = {
+      zIndex: "1",
+      position: "absolute",
+      padding: "10px",
+      margin: "10px",
+      backgroundColor: "cornflowerblue",
+      borderRadius: "10px",
+    }
+    text`Stats: 
+  target: ${target()}
+  size: ${size()}
+  interval: ${interval()}
+  dots: ${dots()}`
+  })
 })
 
 const TriangleDemo = component(
@@ -80,10 +105,12 @@ const TriangleDemo = component(
     addElement("div", (attr) => {
       attr.id = "sierpinski-triangle"
       attr.class = "container"
-      attr.style = {
-        transform: () =>
-          `scaleX(${scale() / 2.1}) scaleY(0.7) translateZ(0.1px)`,
-      }
+      attr.style = () => `
+        transform:
+          scaleX(${scale() / 2.1}) 
+          scaleY(0.7) 
+          translateZ(0.1px)
+      `
       Triangle(0, 0, target, size)
     })
   },
@@ -103,25 +130,26 @@ const Triangle = component((
 })
 
 const Dot = component((x: number, y: number, target: number) => {
-  const { countText } = inject(TriangleContext)
+  const { countText, dots } = inject(TriangleContext)
   const hover = signal(false)
-  const click = signal(false)
-
   const mouseOut = () => hover(false)
   const mouseOver = () => hover(true)
+  const text = () => hover() ? "*" + countText() + "*" : countText()
+  const color = () => hover() === true ? "cornflowerblue" : "pink"
+
+  onMount(() => dots(dots() + 1))
+  onDestroy(() => dots(dots() - 1))
 
   addElement("div", (attr) => {
     attr.class = "dot"
     attr.onMouseOver = mouseOver
     attr.onMouseOut = mouseOut
-    attr.textContent = () => hover() ? "*" + countText() + "*" : countText()
+    attr.textContent = text
     attr.style = {
       width: target + "px",
       height: target + "px",
       lineHeight: target + "px",
-      backgroundColor: () =>
-        hover() === true ? click() === true ? "red" : "cornflowerblue" : "pink",
-      transform: () => click() ? "scale(2)" : "scale(1)",
+      backgroundColor: color,
       left: x + "px",
       top: y + "px",
       fontSize: (target / 2.5) + "px",
