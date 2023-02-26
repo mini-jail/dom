@@ -213,8 +213,10 @@ function modify(elt: DOMElement, callback: ElementCallback<any>): void {
     parentElt = elt
     parentFgt = next[1]!
     callback(next[0])
-    if (next[0]) attributes(elt, curr ? curr[0] : undefined, next[0]!)
-    if (next[1]!.length) children(elt, curr ? curr[1] : undefined, next[1]!)
+    if (curr || next[0]) attributes(elt, curr ? curr[0] : undefined, next[0]!)
+    if (curr || next[1]!.length) {
+      children(elt, curr ? curr[1] : undefined, next[1]!)
+    }
     if (next[1]!.length === 0) next[1] = undefined
     parentElt = undefined
     parentFgt = undefined
