@@ -45,11 +45,6 @@ function node(initialValue, callback) {
     }
     return _node;
 }
-function computed(callback) {
-    const _source = source();
-    effect(()=>set(_source, callback(_source.value)));
-    return get.bind(undefined, _source);
-}
 function onMount(callback) {
     effect(()=>untrack(callback));
 }
@@ -64,6 +59,11 @@ function effect(callback, initialValue) {
     } else {
         queueMicrotask(()=>callback(initialValue));
     }
+}
+function computed(callback, initialValue) {
+    const _source = source(initialValue);
+    effect(()=>set(_source, callback(_source.value)));
+    return get.bind(undefined, _source);
 }
 function lookup(node, id) {
     return node ? node.context && id in node.context ? node.context[id] : lookup(node.parentNode, id) : undefined;
@@ -254,10 +254,6 @@ function render(rootElt, callback) {
 function component(callback) {
     return (...args)=>scoped(()=>callback(...args));
 }
-function onEvent(name, callback, options) {
-    onMount(()=>addEventListener(name, callback, options));
-    onDestroy(()=>removeEventListener(name, callback, options));
-}
 function union(elt, curr, next) {
     const currentLength = curr.length;
     const nextLength = next.length;
@@ -372,6 +368,10 @@ function modify(elt, callback) {
         callback.length ? {} : undefined
     ]);
 }
+function onEvent(name, callback, options) {
+    onMount(()=>addEventListener(name, callback, options));
+    onDestroy(()=>removeEventListener(name, callback, options));
+}
 const TriangleContext = provider(()=>{
     const target = signal(1000);
     const elapsed = signal(0);
@@ -476,3 +476,4 @@ const Dot = component((x, y, target)=>{
         };
     });
 });
+export { onEvent as onEvent };

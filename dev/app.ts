@@ -1,5 +1,14 @@
 import { computed, inject, onDestroy, onMount, provider, signal } from "signals"
-import { addElement, component, elRef, onEvent, render } from "mod"
+import { addElement, component, render } from "mod"
+
+export function onEvent<T extends keyof GlobalEventHandlersEventMap>(
+  name: T,
+  callback: (event: GlobalEventHandlersEventMap[T]) => void,
+  options?: EventListenerOptions,
+): void {
+  onMount(() => addEventListener(name, callback, options))
+  onDestroy(() => removeEventListener(name, callback, options))
+}
 
 const TriangleContext = provider(() => {
   const target = signal(1000)

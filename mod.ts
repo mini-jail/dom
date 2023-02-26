@@ -1,9 +1,6 @@
 import {
-  Accessor,
   Cleanup,
   effect,
-  onDestroy,
-  onMount,
   scoped,
 } from "https://raw.githubusercontent.com/mini-jail/signals/main/mod.ts"
 
@@ -63,15 +60,6 @@ export function component<T extends (...args: any[]) => any>(
   return ((...args) => scoped(() => callback(...args)))
 }
 
-export function onEvent<T extends keyof GlobalEventHandlersEventMap>(
-  name: T,
-  callback: (event: GlobalEventHandlersEventMap[T]) => void,
-  options?: EventListenerOptions,
-): void {
-  onMount(() => addEventListener(name, callback, options))
-  onDestroy(() => removeEventListener(name, callback, options))
-}
-
 function union(
   elt: DOMElement,
   curr: (DOMNode | undefined)[],
@@ -121,7 +109,7 @@ function objectAttribute(
   if (Fields.size === 0) return
   for (const subField of Fields) {
     if (next && typeof next[subField] === "function") {
-      effect<unknown>((subCurr) => {
+      effect((subCurr: unknown) => {
         const subNext = next[subField]()
         if (subNext !== subCurr) elt[field][subField] = subNext
         return subNext
@@ -138,9 +126,9 @@ function objectAttribute(
 function dynamicAttribute(
   elt: DOMElement,
   field: string,
-  accessor: Accessor<unknown>,
+  accessor: () => unknown,
 ): void {
-  effect<unknown>((curr) => {
+  effect((curr: unknown) => {
     const next = accessor()
     if (next !== curr) attribute(elt, field, curr, next)
     return next
@@ -154,7 +142,7 @@ function attribute(
   next: unknown,
 ): void {
   if (typeof next === "function" && !field.startsWith("on")) {
-    dynamicAttribute(elt, field, <Accessor<unknown>> next)
+    dynamicAttribute(elt, field, next as (() => unknown))
   } else if (typeof next === "object") {
     objectAttribute(elt, field, curr, next)
   } else if (field === "textContent") {
@@ -208,7 +196,7 @@ function children(
 }
 
 function modify(elt: DOMElement, callback: ElementCallback<any>) {
-  effect<Modify>((curr) => {
+  effect((curr: Modify) => {
     const next: Modify = [curr[0] ? {} : undefined]
     parentElt = elt
     parentFgt = next[1] = []
@@ -222,7 +210,7 @@ function modify(elt: DOMElement, callback: ElementCallback<any>) {
   }, [callback.length ? {} : undefined])
 }
 
-type Accessable<T> = T | Accessor<T>
+type Accessable<T> = T | (() => T)
 type AccessableObject<T> = { [K in keyof T]: Accessable<T[K]> }
 type Modify = [attributes?: Record<string, any>, children?: DOMNode[]]
 type DOMElement =
