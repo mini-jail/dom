@@ -235,6 +235,141 @@ function provider(callback) {
 function inject(context) {
     return lookup(parentNode, context.id) || context.defaultValue;
 }
+const Error1 = Symbol("Error");
+const Queue1 = new Set();
+let nodeQueue1;
+let parentNode1;
+function scoped1(callback) {
+    const _node = node1();
+    parentNode1 = _node;
+    try {
+        return batch1(()=>{
+            let _cleanup = undefined;
+            if (callback.length) {
+                _cleanup = cleanNode1.bind(undefined, _node, true);
+            }
+            return callback(_cleanup);
+        });
+    } catch (error) {
+        handleError1(error);
+    } finally{
+        parentNode1 = _node.parentNode;
+    }
+}
+function node1(initialValue, callback) {
+    const _node = {
+        value: initialValue,
+        parentNode: parentNode1,
+        children: undefined,
+        context: undefined,
+        cleanups: undefined,
+        callback,
+        sources: undefined,
+        sourceSlots: undefined
+    };
+    if (parentNode1) {
+        if (parentNode1.children === undefined) {
+            parentNode1.children = [
+                _node
+            ];
+        } else {
+            parentNode1.children.push(_node);
+        }
+    }
+    return _node;
+}
+function effect1(callback, initialValue) {
+    if (parentNode1) {
+        const _node = node1(initialValue, callback);
+        if (nodeQueue1) nodeQueue1.add(_node);
+        else queueMicrotask(()=>updateNode1(_node, false));
+    } else {
+        queueMicrotask(()=>callback(initialValue));
+    }
+}
+function lookup1(node, id) {
+    return node ? node.context && id in node.context ? node.context[id] : lookup1(node.parentNode, id) : undefined;
+}
+function handleError1(error) {
+    const errorCallbacks = lookup1(parentNode1, Error1);
+    if (!errorCallbacks) return reportError(error);
+    for (const callback of errorCallbacks){
+        callback(error);
+    }
+}
+function batch1(callback) {
+    if (nodeQueue1) return callback();
+    nodeQueue1 = Queue1;
+    const result = callback();
+    queueMicrotask(flush1);
+    return result;
+}
+function flush1() {
+    if (nodeQueue1 === undefined) return;
+    for (const node of nodeQueue1){
+        nodeQueue1.delete(node);
+        updateNode1(node, false);
+    }
+    nodeQueue1 = undefined;
+}
+function updateNode1(node, complete) {
+    cleanNode1(node, complete);
+    if (node.callback === undefined) return;
+    const previousNode = parentNode1;
+    parentNode1 = node;
+    try {
+        node.value = node.callback(node.value);
+    } catch (error) {
+        handleError1(error);
+    } finally{
+        parentNode1 = previousNode;
+    }
+}
+function cleanNodeSources1(node) {
+    let source, sourceSlot, sourceNode, nodeSlot;
+    while(node.sources.length){
+        source = node.sources.pop();
+        sourceSlot = node.sourceSlots.pop();
+        if (source.nodes?.length) {
+            sourceNode = source.nodes.pop();
+            nodeSlot = source.nodeSlots.pop();
+            if (sourceSlot < source.nodes.length) {
+                source.nodes[sourceSlot] = sourceNode;
+                source.nodeSlots[sourceSlot] = nodeSlot;
+                sourceNode.sourceSlots[nodeSlot] = sourceSlot;
+            }
+        }
+    }
+}
+function cleanChildNodes1(node, complete) {
+    const hasCallback = node.callback !== undefined;
+    let childNode;
+    while(node.children.length){
+        childNode = node.children.pop();
+        cleanNode1(childNode, complete || hasCallback && childNode.callback !== undefined);
+    }
+}
+function cleanNode1(node, complete) {
+    if (node.sources?.length) cleanNodeSources1(node);
+    if (node.children?.length) cleanChildNodes1(node, complete);
+    if (node.cleanups?.length) cleanup1(node);
+    node.context = undefined;
+    if (complete) disposeNode1(node);
+}
+function cleanup1(node) {
+    while(node.cleanups?.length){
+        node.cleanups.pop()();
+    }
+}
+function disposeNode1(node) {
+    node.value = undefined;
+    node.parentNode = undefined;
+    node.children = undefined;
+    node.cleanups = undefined;
+    node.callback = undefined;
+    node.sources = undefined;
+    node.sourceSlots = undefined;
+}
 let parentFgt;
 let parentElt;
 const Fields = new Set();
@@ -254,13 +389,13 @@ function text(strings, ...values) {
     }, ""));
 }
 function render(rootElt, callback) {
-    return scoped((cleanup)=>{
+    return scoped1((cleanup)=>{
         modify(rootElt, callback);
         return cleanup;
     });
 }
 function component(callback) {
-    return (...args)=>scoped(()=>callback(...args));
+    return (...args)=>scoped1(()=>callback(...args));
 }
 function union(elt, curr, next) {
     const currentLength = curr.length;
@@ -296,7 +431,7 @@ function objectAttribute(elt, field, curr, next) {
     if (Fields.size === 0) return;
     for (const subField of Fields){
         if (next && typeof next[subField] === "function") {
-            effect((subCurr)=>{
+            effect1((subCurr)=>{
                 const subNext = next[subField]();
                 if (subNext !== subCurr) elt[field][subField] = subNext;
                 return subNext;
@@ -310,7 +445,7 @@ function objectAttribute(elt, field, curr, next) {
     Fields.clear();
 }
 function dynamicAttribute(elt, field, accessor) {
-    effect((curr)=>{
+    effect1((curr)=>{
         const next = accessor();
         if (next !== curr) attribute(elt, field, curr, next);
         return next;
@@ -359,7 +494,7 @@ function children(elt, curr, next) {
     else if (next.length) elt.append(...next);
 }
 function modify(elt, callback) {
-    effect((curr)=>{
+    effect1((curr)=>{
         const next = [
             callback.length ? {} : undefined,
             []

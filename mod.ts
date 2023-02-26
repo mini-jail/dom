@@ -2,7 +2,7 @@ import {
   Cleanup,
   effect,
   scoped,
-} from "https://raw.githubusercontent.com/mini-jail/signals/main/mod.ts"
+} from "https://raw.githubusercontent.com/mini-jail/signal/main/mod.ts"
 
 let parentFgt: DOMNode[] | undefined
 let parentElt: DOMElement | undefined
