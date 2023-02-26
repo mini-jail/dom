@@ -1,6 +1,0 @@
-{
-  "imports": {
-    "signals": "https://raw.githubusercontent.com/mini-jail/signals/main/mod.ts",
-    "mod": "./mod.ts"
-  }
-}

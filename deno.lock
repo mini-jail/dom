@@ -1,0 +1,6 @@
+{
+  "version": "2",
+  "remote": {
+    "https://raw.githubusercontent.com/mini-jail/signal/main/mod.ts": "91d05c53453b91a66bc7b44804052c7b0e8e99e4f55c3f7f0f628390e7b92376"
+  }
+}
