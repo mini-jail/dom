@@ -6,7 +6,6 @@ import {
 
 let parentFgt: DOMNode[] | undefined
 let parentElt: DOMElement | undefined
-const Fields = new Set<string>()
 
 export function elRef(): HTMLElement | undefined
 export function elRef<T extends HTMLElement>(): T | undefined
@@ -112,10 +111,9 @@ function objectAttribute(
   curr: any,
   next: any,
 ): void {
-  if (curr) addFields(curr)
-  if (next) addFields(next)
-  if (Fields.size === 0) return
-  for (const subField of Fields) {
+  const fields = fieldsFrom(curr, next)
+  if (fields.length === 0) return
+  for (const subField of fields) {
     if (next && typeof next[subField] === "function") {
       effect<unknown>((subCurr) => {
         const subNext = next[subField]()
@@ -128,7 +126,6 @@ function objectAttribute(
       elt[field][subField] = next[subField] || null
     }
   }
-  Fields.clear()
 }
 
 function dynamicAttribute(
@@ -174,8 +171,17 @@ function insert(node: DOMNode): void {
   else parentElt?.appendChild(node)
 }
 
-function addFields(object: any): void {
-  for (const field in object) Fields.add(field)
+function fieldsFrom(...objects: any[]): string[] {
+  const fields: string[] = []
+  for (const object of objects) {
+    if (object == null) continue
+    for (const field in object) {
+      if (fields.includes(field) === false) {
+        fields.push(field)
+      }
+    }
+  }
+  return fields
 }
 
 function attributes(
@@ -183,15 +189,13 @@ function attributes(
   curr: Record<string, any> | undefined,
   next: Record<string, any>,
 ): void {
-  if (curr) addFields(curr)
-  if (next) addFields(next)
-  if (Fields.size === 0) return
-  for (const field of Fields) {
+  const fields = fieldsFrom(curr, next)
+  if (fields.length === 0) return
+  for (const field of fields) {
     const cValue = curr ? curr[field] : undefined
     const nValue = next ? next[field] : undefined
     if (cValue !== nValue) attribute(elt, field, cValue, nValue)
   }
-  Fields.clear()
 }
 
 function children(
