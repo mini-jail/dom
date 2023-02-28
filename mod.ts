@@ -4,8 +4,25 @@ import {
   scoped,
 } from "https://raw.githubusercontent.com/mini-jail/signal/main/mod.ts"
 
+let dev = false
+let parentAtt: Record<string, any> | undefined
 let parentFgt: DOMNode[] | undefined
 let parentElt: DOMElement | undefined
+
+export function setDev(value: boolean): void {
+  dev = value
+}
+
+export function attRef(): HTMLElement | undefined
+export function attRef<T extends keyof HTMLElementTagNameAttributeMap>():
+  | HTMLElementTagNameAttributeMap[T]
+  | undefined
+export function attRef<T extends keyof SVGElementTagNameAttributeMap>():
+  | SVGElementTagNameAttributeMap[T]
+  | undefined
+export function attRef(): Record<string, any> | undefined {
+  return parentAtt
+}
 
 export function elRef(): HTMLElement | undefined
 export function elRef<T extends HTMLElement>(): T | undefined
@@ -51,11 +68,14 @@ export function addSVGElement<T extends keyof SVGElementTagNameAttributeMap>(
   }
 }
 
+export function render(callback: ElementCallback): Cleanup
+export function render(callback: ElementCallback, rootElt: HTMLElement): Cleanup
 export function render(
-  rootElt: HTMLElement,
   callback: ElementCallback,
+  rootElt?: HTMLElement,
 ): Cleanup {
   return scoped((cleanup) => {
+    if (rootElt === undefined) rootElt = <HTMLElement> parentElt
     modify(<DOMElement> rootElt, callback)
     return cleanup
   })!
@@ -68,7 +88,7 @@ export function component<T extends (...args: any[]) => any>(
 }
 
 function union(
-  elt: DOMElement,
+  elt: DOMElement | undefined,
   curr: (DOMNode | undefined)[],
   next: DOMNode[],
 ): void {
@@ -84,13 +104,15 @@ function union(
         if (curr[j]!.data !== next[i].data) curr[j]!.data = next[i].data
         next[i] = curr[j]!
       } else if (curr[j]!.isEqualNode(next[i])) next[i] = curr[j]!
+      else if (dev) console.log("union: !equal", next[i], curr[j])
       if (next[i] === curr[j]) {
+        if (dev) console.log("union: equal", next[i])
         curr[j] = undefined
         if (i === j) continue outerLoop
         break
       }
     }
-    elt.insertBefore(next[i], currentNode?.nextSibling || null)
+    elt?.insertBefore(next[i], currentNode?.nextSibling || null)
   }
   while (curr.length) curr.pop()?.remove()
 }
@@ -203,23 +225,25 @@ function children(
   curr: DOMNode[] | undefined,
   next: DOMNode[],
 ): void {
-  if (curr?.length) queueMicrotask(() => union(elt, curr, next))
+  if (curr?.length) union(elt, curr, next)
   else if (next.length) elt.append(...next)
 }
 
 function modify(elt: DOMElement, callback: ElementCallback<any>): void {
   effect<Modify | undefined>((curr) => {
-    const next: Modify = [callback.length ? {} : undefined, []]
+    const prevElt = parentElt
+    const prevAtt = parentAtt
+    const prevFgt = parentFgt
+    const currAtt = parentAtt = {}
+    const currFgt = parentFgt = []
+    const next: Modify = [currAtt, currFgt]
     parentElt = elt
-    parentFgt = next[1]!
     callback(next[0])
-    if (curr || next[0]) attributes(elt, curr ? curr[0] : undefined, next[0]!)
-    if (curr || next[1]!.length) {
-      children(elt, curr ? curr[1] : undefined, next[1]!)
-    }
-    if (next[1]!.length === 0) next[1] = undefined
-    parentElt = undefined
-    parentFgt = undefined
+    attributes(elt, curr ? curr[0] : undefined, currAtt)
+    children(elt, curr ? curr[1] : undefined, currFgt)
+    parentElt = prevElt
+    parentAtt = prevAtt
+    parentFgt = prevFgt
     return next
   })
 }
