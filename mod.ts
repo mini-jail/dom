@@ -24,16 +24,20 @@ export function attRef(): Record<string, any> | undefined {
   return parentAtt
 }
 
-export function elRef(): HTMLElement | undefined
-export function elRef<T extends HTMLElement>(): T | undefined
-export function elRef<T extends SVGElement>(): T | undefined
-export function elRef(): HTMLElement | SVGElement | undefined {
+export function eltRef(): DOMElement | undefined
+export function eltRef<T extends keyof HTMLElementTagNameAttributeMap>():
+  | HTMLElementTagNameAttributeMap[T]
+  | undefined
+export function eltRef<T extends keyof SVGElementTagNameAttributeMap>():
+  | SVGElementTagNameAttributeMap[T]
+  | undefined
+export function eltRef(): DOMElement | undefined {
   return parentElt
 }
 
 export function addElement<T extends keyof HTMLElementTagNameAttributeMap>(
   tagName: T,
-  callback: ElementCallback<HTMLElementTagNameAttributeMap[T]>,
+  callback: (attributes: HTMLElementTagNameAttributeMap[T]) => void,
 ): void {
   if (parentElt || parentFgt) {
     const elt = document.createElement(tagName) as DOMElement
@@ -54,9 +58,9 @@ export function text(strings: TemplateStringsArray, ...values: any[]): void {
   )
 }
 
-export function addSVGElement<T extends keyof SVGElementTagNameAttributeMap>(
+export function addElementNS<T extends keyof SVGElementTagNameAttributeMap>(
   tagName: T,
-  callback: ElementCallback<SVGElementTagNameAttributeMap[T]>,
+  callback: (attributes: SVGElementTagNameAttributeMap[T]) => void,
 ): void {
   if (parentElt || parentFgt) {
     const elt = document.createElementNS(
@@ -68,17 +72,21 @@ export function addSVGElement<T extends keyof SVGElementTagNameAttributeMap>(
   }
 }
 
-export function render(callback: ElementCallback): Cleanup
-export function render(callback: ElementCallback, rootElt: HTMLElement): Cleanup
 export function render(
-  callback: ElementCallback,
-  rootElt?: HTMLElement,
+  rootElt: DOMElement,
+  callback: () => void,
 ): Cleanup {
   return scoped((cleanup) => {
-    if (rootElt === undefined) rootElt = <HTMLElement> parentElt
-    modify(<DOMElement> rootElt, callback)
+    const prevElt = parentElt
+    parentElt = rootElt
+    callback()
+    parentElt = prevElt
     return cleanup
   })!
+}
+
+export function view(callback: () => void): void {
+  modify(parentElt!, callback)
 }
 
 export function component<T extends (...args: any[]) => any>(
@@ -193,7 +201,7 @@ function insert(node: DOMNode): void {
   else parentElt?.appendChild(node)
 }
 
-function fieldsFrom(...objects: any[]): string[] {
+function fieldsFrom(...objects: (object | undefined | null)[]): string[] {
   const fields: string[] = []
   for (const object of objects) {
     if (object == null) continue
@@ -229,22 +237,21 @@ function children(
   else if (next.length) elt.append(...next)
 }
 
-function modify(elt: DOMElement, callback: ElementCallback<any>): void {
+function modify(elt: DOMElement, callback: (attr: any) => void): void {
   effect<Modify | undefined>((curr) => {
     const prevElt = parentElt
     const prevAtt = parentAtt
     const prevFgt = parentFgt
-    const currAtt = parentAtt = {}
-    const currFgt = parentFgt = []
-    const next: Modify = [currAtt, currFgt]
+    const nextAtt = parentAtt = {}
+    const nextFgt = parentFgt = []
     parentElt = elt
-    callback(next[0])
-    attributes(elt, curr ? curr[0] : undefined, currAtt)
-    children(elt, curr ? curr[1] : undefined, currFgt)
+    callback(nextAtt)
+    attributes(elt, curr ? curr[0] : undefined, nextAtt)
+    children(elt, curr ? curr[1] : undefined, nextFgt)
     parentElt = prevElt
     parentAtt = prevAtt
     parentFgt = prevFgt
-    return next
+    return [nextAtt, nextFgt]
   })
 }
 
@@ -258,8 +265,6 @@ type DOMElement =
 type DOMNode =
   & (Node | DOMElement)
   & { [key: string]: any }
-type ElementCallback<T = void> = T extends void ? (() => void)
-  : (attributes: T) => void
 type AnyString = object & string
 type BooleanLike = boolean | "false" | "true"
 type NumberLike = number | string
