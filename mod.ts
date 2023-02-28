@@ -225,7 +225,7 @@ function children(
   curr: DOMNode[] | undefined,
   next: DOMNode[],
 ): void {
-  if (curr?.length) union(elt, curr, next)
+  if (curr?.length) queueMicrotask(() => union(elt, curr, next))
   else if (next.length) elt.append(...next)
 }
 
