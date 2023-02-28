@@ -8,7 +8,9 @@ let parentAtt: Record<string, any> | undefined
 let parentFgt: DOMNode[] | undefined
 let parentElt: DOMElement | undefined
 
-export function attRef(): HTMLElement | undefined
+export function attRef():
+  | ElementAttributes & EventAttributes<HTMLElement>
+  | undefined
 export function attRef<T extends keyof HTMLElementTagNameAttributeMap>():
   | HTMLElementTagNameAttributeMap[T]
   | undefined
