@@ -4,14 +4,9 @@ import {
   scoped,
 } from "https://raw.githubusercontent.com/mini-jail/signal/main/mod.ts"
 
-let dev = false
 let parentAtt: Record<string, any> | undefined
 let parentFgt: DOMNode[] | undefined
 let parentElt: DOMElement | undefined
-
-export function setDev(value: boolean): void {
-  dev = value
-}
 
 export function attRef(): HTMLElement | undefined
 export function attRef<T extends keyof HTMLElementTagNameAttributeMap>():
@@ -25,11 +20,11 @@ export function attRef(): Record<string, any> | undefined {
 }
 
 export function eltRef(): DOMElement | undefined
-export function eltRef<T extends keyof HTMLElementTagNameAttributeMap>():
-  | HTMLElementTagNameAttributeMap[T]
+export function eltRef<T extends keyof HTMLElementTagNameMap>():
+  | HTMLElementTagNameMap[T]
   | undefined
-export function eltRef<T extends keyof SVGElementTagNameAttributeMap>():
-  | SVGElementTagNameAttributeMap[T]
+export function eltRef<T extends keyof SVGElementTagNameMap>():
+  | SVGElementTagNameMap[T]
   | undefined
 export function eltRef(): DOMElement | undefined {
   return parentElt
@@ -73,20 +68,21 @@ export function addElementNS<T extends keyof SVGElementTagNameAttributeMap>(
 }
 
 export function render(
-  rootElt: DOMElement,
+  rootElt: HTMLElement,
   callback: () => void,
 ): Cleanup {
   return scoped((cleanup) => {
     const prevElt = parentElt
-    parentElt = rootElt
+    parentElt = <DOMElement> rootElt
     callback()
     parentElt = prevElt
     return cleanup
   })!
 }
 
-export function view(callback: () => void): void {
-  modify(parentElt!, callback)
+export function view(callback: (renderCounter: number) => void): void {
+  let renderCounter = 0
+  modify(parentElt!, () => callback(++renderCounter))
 }
 
 export function component<T extends (...args: any[]) => any>(
@@ -112,9 +108,7 @@ function union(
         if (curr[j]!.data !== next[i].data) curr[j]!.data = next[i].data
         next[i] = curr[j]!
       } else if (curr[j]!.isEqualNode(next[i])) next[i] = curr[j]!
-      else if (dev) console.log("union: !equal", next[i], curr[j])
       if (next[i] === curr[j]) {
-        if (dev) console.log("union: equal", next[i])
         curr[j] = undefined
         if (i === j) continue outerLoop
         break
