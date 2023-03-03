@@ -4,7 +4,7 @@ import {
   scoped,
 } from "https://raw.githubusercontent.com/mini-jail/signal/main/mod.ts"
 
-let parentAtrs: Object | undefined
+let parentAttrs: Object | undefined
 let parentFgt: DOMNode[] | undefined
 let parentElt: DOMElement | undefined
 
@@ -19,8 +19,8 @@ export function attributesRef<T extends keyof SVGElementTagNameAttributeMap>():
   | undefined
 export function attributesRef(): Object | undefined {
   if (parentElt === undefined) return undefined
-  if (parentAtrs === undefined) parentAtrs = {}
-  return parentAtrs
+  if (parentAttrs === undefined) parentAttrs = {}
+  return parentAttrs
 }
 
 export function elementRef(): HTMLElement | undefined
@@ -183,17 +183,17 @@ function insert(node: DOMNode): void {
 
 function modify(elt: DOMElement, callback: (attributes: any) => void): void {
   const previousElt = parentElt
-  const previousAtrs = parentAtrs
+  const previousAttrs = parentAttrs
   parentElt = elt
-  parentAtrs = callback.length ? {} : undefined
-  callback(parentAtrs)
-  if (parentAtrs) {
-    for (const field in parentAtrs) {
-      attribute(elt, field, parentAtrs[field])
+  parentAttrs = callback.length ? {} : undefined
+  callback(parentAttrs)
+  if (parentAttrs) {
+    for (const field in parentAttrs) {
+      attribute(elt, field, parentAttrs[field])
     }
   }
   parentElt = previousElt
-  parentAtrs = previousAtrs
+  parentAttrs = previousAttrs
 }
 
 type Object = { [field: string]: any }
@@ -203,9 +203,7 @@ type DOMElement =
   & (HTMLElement | SVGElement)
   & { firstChild?: DOMNode }
   & Object
-type DOMNode =
-  & (Node | DOMElement)
-  & Object
+type DOMNode = (Node | DOMElement) & Object
 type AnyString = object & string
 type BooleanLike = boolean | "false" | "true"
 type NumberLike = number | string
@@ -520,13 +518,7 @@ interface AriaAttributes {
   ariaFlowto: string
   /** @deprecated */
   ariaGrabbed: BooleanLike
-  ariaHaspopup:
-    | BooleanLike
-    | "menu"
-    | "listbox"
-    | "tree"
-    | "grid"
-    | "dialog"
+  ariaHaspopup: BooleanLike | "menu" | "listbox" | "tree" | "grid" | "dialog"
   ariaHidden: BooleanLike
   ariaInvalid: BooleanLike | "grammar" | "spelling"
   ariaKeyshortcuts: string

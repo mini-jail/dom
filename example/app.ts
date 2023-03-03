@@ -11,18 +11,11 @@ import {
 const Button = component((init: number) => {
   const counter = signal(init)
 
-  view(() => {
-    addElement("div", () => {
-      const $ = attributesRef<"div">()!
-      $.id = "counter"
-      $.onClick = () => counter(counter() + 1)
-      addText(`Button: ${counter()}`)
-
-      addElement("a", () => {
-        const $ = attributesRef()!
-        $.class = "sex"
-      })
-    })
+  addElement("div", () => {
+    const $ = attributesRef<"div">()!
+    $.id = "counter"
+    $.onClick = () => counter(counter() + 1)
+    view(() => addText(`Button: ${counter()}`))
   })
 })
 

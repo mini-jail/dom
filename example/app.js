@@ -190,27 +190,17 @@ function disposeNode(node) {
     node.sources = undefined;
     node.sourceSlots = undefined;
 }
-let parentAtrs;
+let parentAttrs;
 let parentFgt;
 let parentElt;
 function attributesRef() {
     if (parentElt === undefined) return undefined;
-    if (parentAtrs === undefined) parentAtrs = Object.create(null);
-    return parentAtrs;
+    if (parentAttrs === undefined) parentAttrs = {};
+    return parentAttrs;
 }
 function addElement(tagName, callback) {
     const elt = document.createElement(tagName);
-    if (callback) {
-        const previousElt = parentElt;
-        const previousAtrs = parentAtrs;
-        parentElt = elt;
-        parentAtrs = undefined;
-        if (callback.length) parentAtrs = Object.create(null);
-        callback(parentAtrs);
-        if (parentAtrs !== previousAtrs) attributes(elt, parentAtrs);
-        parentElt = previousElt;
-        parentAtrs = previousAtrs;
-    }
+    if (callback) modify(elt, callback);
     insert(elt);
 }
 function addText(value) {
@@ -229,11 +219,10 @@ function view(callback) {
     if (parentElt === undefined) return callback();
     const anchor = parentElt.appendChild(new Text());
     effect((current)=>{
-        const nextFgt = parentFgt = [];
+        parentFgt = [];
         callback();
-        union(anchor.parentNode, anchor, current, nextFgt);
-        parentFgt = undefined;
-        return nextFgt.length > 0 ? nextFgt : undefined;
+        union(anchor.parentNode, anchor, current, parentFgt);
+        return parentFgt.length > 0 ? parentFgt : undefined;
     });
 }
 function component(callback) {
@@ -276,7 +265,7 @@ function eventName(name) {
 function objectAttribute(elt, field, object) {
     for(const subField in object){
         const value = object[subField];
-        if (value === "function") {
+        if (typeof value === "function") {
             effect((subCurr)=>{
                 const subNext = value();
                 if (subNext !== subCurr) elt[field][subField] = subNext || null;
@@ -316,24 +305,27 @@ function insert(node) {
     if (parentElt === undefined) parentFgt?.push(node);
     else parentElt?.appendChild(node);
 }
-function attributes(elt, value) {
-    for(const field in value){
-        attribute(elt, field, value[field]);
+function modify(elt, callback) {
+    const previousElt = parentElt;
+    const previousAttrs = parentAttrs;
+    parentElt = elt;
+    parentAttrs = callback.length ? {} : undefined;
+    callback(parentAttrs);
+    if (parentAttrs) {
+        for(const field in parentAttrs){
+            attribute(elt, field, parentAttrs[field]);
+        }
     }
+    parentElt = previousElt;
+    parentAttrs = previousAttrs;
 }
 const Button = component((init)=>{
     const counter = signal(init);
-    view(()=>{
-        addElement("div", ()=>{
-            const $ = attributesRef();
-            $.id = "counter";
-            $.onClick = ()=>counter(counter() + 1);
-            addText(`Button: ${counter()}`);
-            addElement("a", ()=>{
-                const $ = attributesRef();
-                $.class = "sex";
-            });
-        });
+    addElement("div", ()=>{
+        const $ = attributesRef();
+        $.id = "counter";
+        $.onClick = ()=>counter(counter() + 1);
+        view(()=>addText(`Button: ${counter()}`));
     });
 });
 render(document.body, ()=>{
