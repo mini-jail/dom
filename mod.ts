@@ -4,87 +4,104 @@ import {
   scoped,
 } from "https://raw.githubusercontent.com/mini-jail/signal/main/mod.ts"
 
-let parentAtt: Record<string, any> | undefined
+let parentAtrs: Object | undefined
 let parentFgt: DOMNode[] | undefined
 let parentElt: DOMElement | undefined
 
-export function attRef():
+export function attributesRef():
   | ElementAttributes & EventAttributes<HTMLElement>
   | undefined
-export function attRef<T extends keyof HTMLElementTagNameAttributeMap>():
+export function attributesRef<T extends keyof HTMLElementTagNameAttributeMap>():
   | HTMLElementTagNameAttributeMap[T]
   | undefined
-export function attRef<T extends keyof SVGElementTagNameAttributeMap>():
+export function attributesRef<T extends keyof SVGElementTagNameAttributeMap>():
   | SVGElementTagNameAttributeMap[T]
   | undefined
-export function attRef(): Record<string, any> | undefined {
-  return parentAtt
+export function attributesRef(): Object | undefined {
+  return parentElt === undefined
+    ? undefined
+    : parentAtrs === undefined
+    ? (parentAtrs = Object.create(null))
+    : undefined
 }
 
-export function eltRef(): DOMElement | undefined
-export function eltRef<T extends keyof HTMLElementTagNameMap>():
+export function elementRef(): HTMLElement | undefined
+export function elementRef(): SVGElement | undefined
+export function elementRef<T extends keyof HTMLElementTagNameMap>():
   | HTMLElementTagNameMap[T]
   | undefined
-export function eltRef<T extends keyof SVGElementTagNameMap>():
+export function elementRef<T extends keyof SVGElementTagNameMap>():
   | SVGElementTagNameMap[T]
   | undefined
-export function eltRef(): DOMElement | undefined {
+export function elementRef(): HTMLElement | SVGElement | undefined {
   return parentElt
 }
 
 export function addElement<T extends keyof HTMLElementTagNameAttributeMap>(
   tagName: T,
-  callback: (attributes: HTMLElementTagNameAttributeMap[T]) => void,
+  callback?: (attributes: HTMLElementTagNameAttributeMap[T]) => void,
 ): void {
-  if (parentElt || parentFgt) {
-    const elt = document.createElement(tagName) as DOMElement
-    if (callback) modify(elt, callback)
-    insert(elt)
+  const elt = <DOMElement> document.createElement(tagName)
+  if (callback) {
+    const previousElt = parentElt
+    const previousAtrs = parentAtrs
+    let nextAtrs: HTMLElementTagNameAttributeMap[T]
+    if (callback.length) nextAtrs = parentAtrs = Object.create(null)
+    parentElt = elt
+    callback(nextAtrs!)
+    if (parentAtrs) attributes(elt, parentAtrs!)
+    parentElt = previousElt
+    parentAtrs = previousAtrs
   }
-}
-
-export function addText(value: any): void {
-  if (parentElt || parentFgt) insert(new Text(String(value)))
-}
-
-export function text(strings: TemplateStringsArray, ...values: any[]): void {
-  addText(
-    strings.reduce((result, string, i) => {
-      return result += string + (i in values ? values[i] : "")
-    }, ""),
-  )
+  insert(elt)
 }
 
 export function addElementNS<T extends keyof SVGElementTagNameAttributeMap>(
   tagName: T,
   callback: (attributes: SVGElementTagNameAttributeMap[T]) => void,
 ): void {
-  if (parentElt || parentFgt) {
-    const elt = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      tagName,
-    ) as DOMElement
-    if (callback) modify(elt, callback)
-    insert(elt)
+  const elt = <DOMElement> document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    tagName,
+  )
+  if (callback) {
+    const previousElt = parentElt
+    const previousAtrs = parentAtrs
+    let nextAtrs: SVGElementTagNameAttributeMap[T]
+    if (callback.length) nextAtrs = parentAtrs = Object.create(null)
+    parentElt = elt
+    callback(nextAtrs!)
+    if (parentAtrs) attributes(elt, parentAtrs!)
+    parentElt = previousElt
+    parentAtrs = previousAtrs
   }
+  insert(elt)
 }
 
-export function render(
-  rootElt: HTMLElement,
-  callback: () => void,
-): Cleanup {
+export function addText(value: any): void {
+  insert(new Text(String(value)))
+}
+
+export function render(rootElt: HTMLElement, callback: () => void): Cleanup {
   return scoped((cleanup) => {
-    const prevElt = parentElt
+    const previousElt = parentElt
     parentElt = <DOMElement> rootElt
     callback()
-    parentElt = prevElt
+    parentElt = previousElt
     return cleanup
   })!
 }
 
-export function view(callback: (renderCounter: number) => void): void {
-  let renderCounter = 0
-  modify(parentElt!, () => callback(++renderCounter))
+export function view(callback: () => void): void {
+  if (parentElt === undefined) return callback()
+  const anchor = parentElt.appendChild(new Text())
+  effect<DOMNode[] | undefined>((current) => {
+    const nextFgt: DOMNode[] = parentFgt = []
+    callback()
+    union(<DOMElement> anchor.parentNode, anchor, current, nextFgt)
+    parentFgt = undefined
+    return nextFgt.length > 0 ? nextFgt : undefined
+  })
 }
 
 export function component<T extends (...args: any[]) => any>(
@@ -93,32 +110,40 @@ export function component<T extends (...args: any[]) => any>(
   return ((...args) => scoped(() => callback(...args)))
 }
 
+function insertBefore(elt: DOMElement, child: DOMNode, anchor: DOMNode): void {
+  elt.insertBefore(child, anchor)
+}
+
 function union(
-  elt: DOMElement | undefined,
-  curr: (DOMNode | undefined)[],
+  elt: DOMElement,
+  anchor: DOMNode,
+  current: (DOMNode | undefined)[] | undefined,
   next: DOMNode[],
 ): void {
-  const currentLength = curr.length
+  if (current === undefined) {
+    return next.forEach((node) => insertBefore(elt, node, anchor))
+  }
+  const currentLength = current.length
   const nextLength = next.length
   let currentNode: DOMNode | undefined, i: number, j: number
   outerLoop:
   for (i = 0; i < nextLength; i++) {
-    currentNode = curr[i]
+    currentNode = current[i]
     for (j = 0; j < currentLength; j++) {
-      if (curr[j] === undefined) continue
-      else if (curr[j]!.nodeType === 3 && next[i].nodeType === 3) {
-        if (curr[j]!.data !== next[i].data) curr[j]!.data = next[i].data
-        next[i] = curr[j]!
-      } else if (curr[j]!.isEqualNode(next[i])) next[i] = curr[j]!
-      if (next[i] === curr[j]) {
-        curr[j] = undefined
+      if (current[j] === undefined) continue
+      else if (current[j]!.nodeType === 3 && next[i].nodeType === 3) {
+        if (current[j]!.data !== next[i].data) current[j]!.data = next[i].data
+        next[i] = current[j]!
+      } else if (current[j]!.isEqualNode(next[i])) next[i] = current[j]!
+      if (next[i] === current[j]) {
+        current[j] = undefined
         if (i === j) continue outerLoop
         break
       }
     }
-    elt?.insertBefore(next[i], currentNode?.nextSibling || null)
+    insertBefore(elt, next[i], currentNode?.nextSibling || anchor)
   }
-  while (curr.length) curr.pop()?.remove()
+  while (current.length) current.pop()?.remove()
 }
 
 function qualifiedName(name: string): string {
@@ -131,25 +156,17 @@ function eventName(name: string): string {
   return name.startsWith("on:") ? name.slice(3) : name.slice(2).toLowerCase()
 }
 
-function objectAttribute(
-  elt: DOMElement,
-  field: string,
-  curr: any,
-  next: any,
-): void {
-  const fields = fieldsFrom(curr, next)
-  if (fields.length === 0) return
-  for (const subField of fields) {
-    if (next && typeof next[subField] === "function") {
-      effect<unknown>((subCurr) => {
-        const subNext = next[subField]()
-        if (subNext !== subCurr) elt[field][subField] = subNext
+function objectAttribute(elt: DOMElement, field: string, object: any): void {
+  for (const subField in object) {
+    const value = object[subField]
+    if (value === "function") {
+      effect<any>((subCurr) => {
+        const subNext = value()
+        if (subNext !== subCurr) elt[field][subField] = subNext || null
         return subNext
       })
-    } else if ((curr && curr[subField]) && next[subField] === undefined) {
-      elt[field][subField] = null
-    } else if ((curr && curr[subField]) !== next[subField]) {
-      elt[field][subField] = next[subField] || null
+    } else {
+      elt[field][subField] = value || null
     }
   }
 }
@@ -157,110 +174,55 @@ function objectAttribute(
 function dynamicAttribute(
   elt: DOMElement,
   field: string,
-  accessor: () => unknown,
+  value: () => unknown,
 ): void {
-  effect<unknown>((curr) => {
-    const next = accessor()
-    if (next !== curr) attribute(elt, field, curr, next)
+  effect<unknown>((current) => {
+    const next = value()
+    if (next !== current) attribute(elt, field, next)
     return next
   })
 }
 
-function attribute(
-  elt: DOMElement,
-  field: string,
-  curr: unknown,
-  next: unknown,
-): void {
-  if (typeof next === "function" && !field.startsWith("on")) {
-    dynamicAttribute(elt, field, next as (() => unknown))
-  } else if (typeof next === "object") {
-    objectAttribute(elt, field, curr, next)
+function attribute(elt: DOMElement, field: string, value: unknown): void {
+  if (typeof value === "function" && !field.startsWith("on")) {
+    dynamicAttribute(elt, field, value as (() => unknown))
+  } else if (typeof value === "object") {
+    objectAttribute(elt, field, value)
   } else if (field === "textContent") {
-    if (elt.firstChild?.nodeType === 3) elt.firstChild.data = next
-    else elt.prepend(String(next))
+    if (elt.firstChild?.nodeType === 3) elt.firstChild.data = String(value)
+    else elt.prepend(String(value))
   } else if (field in elt) {
-    if (curr && next === undefined) elt[field] = null
-    else elt[field] = next
+    elt[field] = value
   } else if (field.startsWith("on")) {
-    curr && elt.removeEventListener(eventName(field), <EventListener> curr)
-    next && elt.addEventListener(eventName(field), <EventListener> next)
-  } else if (next !== undefined) {
-    elt.setAttributeNS(null, qualifiedName(field), String(next))
+    elt.addEventListener(eventName(field), <EventListener> value)
+  } else if (value != null) {
+    elt.setAttributeNS(null, qualifiedName(field), String(value))
   } else {
     elt.removeAttributeNS(null, qualifiedName(field))
   }
 }
 
 function insert(node: DOMNode): void {
-  if (parentFgt) parentFgt.push(node)
+  if (parentElt === undefined) parentFgt?.push(node)
   else parentElt?.appendChild(node)
 }
 
-function fieldsFrom(...objects: (object | undefined | null)[]): string[] {
-  const fields: string[] = []
-  for (const object of objects) {
-    if (object == null) continue
-    for (const field in object) {
-      if (fields.includes(field) === false) {
-        fields.push(field)
-      }
-    }
-  }
-  return fields
-}
-
-function attributes(
-  elt: DOMElement,
-  curr: Record<string, any> | undefined,
-  next: Record<string, any>,
-): void {
-  const fields = fieldsFrom(curr, next)
-  if (fields.length === 0) return
-  for (const field of fields) {
-    const cValue = curr ? curr[field] : undefined
-    const nValue = next ? next[field] : undefined
-    if (cValue !== nValue) attribute(elt, field, cValue, nValue)
+function attributes(elt: DOMElement, value: Object): void {
+  for (const field in value) {
+    attribute(elt, field, value[field])
   }
 }
 
-function children(
-  elt: DOMElement,
-  curr: DOMNode[] | undefined,
-  next: DOMNode[],
-): void {
-  if (curr?.length) queueMicrotask(() => union(elt, curr, next))
-  else if (next.length) elt.append(...next)
-}
-
-function modify(elt: DOMElement, callback: (attr: any) => void): void {
-  effect<Modify | undefined>((curr) => {
-    const prevElt = parentElt
-    const prevAtt = parentAtt
-    const prevFgt = parentFgt
-    const nextAtt = parentAtt = {}
-    const nextFgt = parentFgt = []
-    parentElt = elt
-    callback(nextAtt)
-    attributes(elt, curr ? curr[0] : undefined, nextAtt)
-    children(elt, curr ? curr[1] : undefined, nextFgt)
-    parentElt = prevElt
-    parentAtt = prevAtt
-    parentFgt = prevFgt
-    return [nextAtt, nextFgt]
-  })
-}
-
+type Object = { [field: string]: any }
 type Accessable<T> = T | (() => T)
 type AccessableObject<T> = { [K in keyof T]: Accessable<T[K]> }
-type Modify = [attributes?: Record<string, any>, children?: DOMNode[]]
 type DOMElement =
   & (HTMLElement | SVGElement)
   & { firstChild?: DOMNode }
-  & { [key: string]: any }
+  & Object
 type DOMNode =
   & (Node | DOMElement)
-  & { [key: string]: any }
+  & Object
 type AnyString = object & string
 type BooleanLike = boolean | "false" | "true"
 type NumberLike = number | string

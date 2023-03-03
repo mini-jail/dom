@@ -8,9 +8,5 @@
   },
   "compilerOptions": {
     "lib": ["DOM", "ESNext"]
-  },
-  "tasks": {
-    "serve": "deno run --allow-net --allow-read https://deno.land/std/http/file_server.ts ./dev --port=3000",
-    "dev": "deno bundle --import-map=import_map.json --watch ./dev/app.ts ./dev/app.js"
   }
 }
