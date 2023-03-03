@@ -19,7 +19,7 @@ export function attributesRef<T extends keyof SVGElementTagNameAttributeMap>():
   | undefined
 export function attributesRef(): Object | undefined {
   if (parentElt === undefined) return undefined
-  if (parentAtrs === undefined) parentAtrs = Object.create(null)
+  if (parentAtrs === undefined) parentAtrs = {}
   return parentAtrs
 }
 
@@ -39,18 +39,8 @@ export function addElement<T extends keyof HTMLElementTagNameAttributeMap>(
   tagName: T,
   callback?: (attributes: HTMLElementTagNameAttributeMap[T]) => void,
 ): void {
-  const elt = <DOMElement> document.createElement(tagName)
-  if (callback) {
-    const previousElt = parentElt
-    const previousAtrs = parentAtrs
-    parentElt = elt
-    parentAtrs = undefined
-    if (callback.length) parentAtrs = Object.create(null)
-    callback(parentAtrs as HTMLElementTagNameAttributeMap[T])
-    if (parentAtrs && parentAtrs !== previousAtrs) attributes(elt, parentAtrs!)
-    parentElt = previousElt
-    parentAtrs = previousAtrs
-  }
+  const elt = document.createElement(tagName)
+  if (callback) modify(<DOMElement> elt, callback)
   insert(elt)
 }
 
@@ -58,21 +48,8 @@ export function addElementNS<T extends keyof SVGElementTagNameAttributeMap>(
   tagName: T,
   callback: (attributes: SVGElementTagNameAttributeMap[T]) => void,
 ): void {
-  const elt = <DOMElement> document.createElementNS(
-    "http://www.w3.org/2000/svg",
-    tagName,
-  )
-  if (callback) {
-    const previousElt = parentElt
-    const previousAtrs = parentAtrs
-    parentElt = elt
-    parentAtrs = undefined
-    if (callback.length) parentAtrs = Object.create(null)
-    callback(parentAtrs as SVGElementTagNameAttributeMap[T])
-    if (parentAtrs && parentAtrs !== previousAtrs) attributes(elt, parentAtrs!)
-    parentElt = previousElt
-    parentAtrs = previousAtrs
-  }
+  const elt = document.createElementNS("http://www.w3.org/2000/svg", tagName)
+  if (callback) modify(<DOMElement> elt, callback)
   insert(elt)
 }
 
@@ -94,11 +71,10 @@ export function view(callback: () => void): void {
   if (parentElt === undefined) return callback()
   const anchor = parentElt.appendChild(new Text())
   effect<DOMNode[] | undefined>((current) => {
-    const nextFgt: DOMNode[] = parentFgt = []
+    parentFgt = []
     callback()
-    union(<DOMElement> anchor.parentNode, anchor, current, nextFgt)
-    parentFgt = undefined
-    return nextFgt.length > 0 ? nextFgt : undefined
+    union(<DOMElement> anchor.parentNode, anchor, current, parentFgt)
+    return parentFgt.length > 0 ? parentFgt : undefined
   })
 }
 
@@ -205,10 +181,20 @@ function insert(node: DOMNode): void {
   else parentElt?.appendChild(node)
 }
 
-function attributes(elt: DOMElement, value: Object): void {
-  for (const field in value) {
-    attribute(elt, field, value[field])
+function modify(elt: DOMElement, callback: (attributes: any) => void): void {
+  const previousElt = parentElt
+  const previousAtrs = parentAtrs
+  parentElt = elt
+  parentAtrs = undefined
+  if (callback.length) parentAtrs = {}
+  callback(parentAtrs)
+  if (parentAtrs && parentAtrs !== previousAtrs) {
+    for (const field in parentAtrs) {
+      attribute(elt, field, parentAtrs[field])
+    }
   }
+  parentElt = previousElt
+  parentAtrs = previousAtrs
 }
 
 type Object = { [field: string]: any }
