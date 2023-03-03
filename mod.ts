@@ -188,7 +188,7 @@ function modify(elt: DOMElement, callback: (attributes: any) => void): void {
   parentAtrs = undefined
   if (callback.length) parentAtrs = {}
   callback(parentAtrs)
-  if (parentAtrs && parentAtrs !== previousAtrs) {
+  if (parentAtrs) {
     for (const field in parentAtrs) {
       attribute(elt, field, parentAtrs[field])
     }
