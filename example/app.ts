@@ -13,14 +13,15 @@ const Button = component((init: number) => {
 
   view(() => {
     addElement("div", () => {
-      const attr = attributesRef<"div">()!
-      attr.id = "counter"
-      attr.onClick = () => counter(counter() + 1)
+      const $ = attributesRef<"div">()!
+      $.id = "counter"
+      $.onClick = () => counter(counter() + 1)
       addText(`Button: ${counter()}`)
-    })
 
-    addElement("div", () => {
-      addText("Sex")
+      addElement("a", () => {
+        const $ = attributesRef()!
+        $.class = "sex"
+      })
     })
   })
 })

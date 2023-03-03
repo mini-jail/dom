@@ -18,11 +18,9 @@ export function attributesRef<T extends keyof SVGElementTagNameAttributeMap>():
   | SVGElementTagNameAttributeMap[T]
   | undefined
 export function attributesRef(): Object | undefined {
-  return parentElt === undefined
-    ? undefined
-    : parentAtrs === undefined
-    ? (parentAtrs = Object.create(null))
-    : undefined
+  if (parentElt === undefined) return undefined
+  if (parentAtrs === undefined) parentAtrs = Object.create(null)
+  return parentAtrs
 }
 
 export function elementRef(): HTMLElement | undefined
@@ -45,11 +43,11 @@ export function addElement<T extends keyof HTMLElementTagNameAttributeMap>(
   if (callback) {
     const previousElt = parentElt
     const previousAtrs = parentAtrs
-    let nextAtrs: HTMLElementTagNameAttributeMap[T]
-    if (callback.length) nextAtrs = parentAtrs = Object.create(null)
     parentElt = elt
-    callback(nextAtrs!)
-    if (parentAtrs) attributes(elt, parentAtrs!)
+    parentAtrs = undefined
+    if (callback.length) parentAtrs = Object.create(null)
+    callback(parentAtrs as HTMLElementTagNameAttributeMap[T])
+    if (parentAtrs !== previousAtrs) attributes(elt, parentAtrs!)
     parentElt = previousElt
     parentAtrs = previousAtrs
   }
@@ -67,11 +65,11 @@ export function addElementNS<T extends keyof SVGElementTagNameAttributeMap>(
   if (callback) {
     const previousElt = parentElt
     const previousAtrs = parentAtrs
-    let nextAtrs: SVGElementTagNameAttributeMap[T]
-    if (callback.length) nextAtrs = parentAtrs = Object.create(null)
     parentElt = elt
-    callback(nextAtrs!)
-    if (parentAtrs) attributes(elt, parentAtrs!)
+    parentAtrs = undefined
+    if (callback.length) parentAtrs = Object.create(null)
+    callback(parentAtrs as SVGElementTagNameAttributeMap[T])
+    if (parentAtrs !== previousAtrs) attributes(elt, parentAtrs!)
     parentElt = previousElt
     parentAtrs = previousAtrs
   }

@@ -194,18 +194,20 @@ let parentAtrs;
 let parentFgt;
 let parentElt;
 function attributesRef() {
-    return parentElt === undefined ? undefined : parentAtrs === undefined ? parentAtrs = Object.create(null) : undefined;
+    if (parentElt === undefined) return undefined;
+    if (parentAtrs === undefined) parentAtrs = Object.create(null);
+    return parentAtrs;
 }
 function addElement(tagName, callback) {
     const elt = document.createElement(tagName);
     if (callback) {
         const previousElt = parentElt;
         const previousAtrs = parentAtrs;
-        let nextAtrs;
-        if (callback.length) nextAtrs = parentAtrs = Object.create(null);
         parentElt = elt;
-        callback(nextAtrs);
-        if (parentAtrs) attributes(elt, parentAtrs);
+        parentAtrs = undefined;
+        if (callback.length) parentAtrs = Object.create(null);
+        callback(parentAtrs);
+        if (parentAtrs !== previousAtrs) attributes(elt, parentAtrs);
         parentElt = previousElt;
         parentAtrs = previousAtrs;
     }
@@ -323,13 +325,14 @@ const Button = component((init)=>{
     const counter = signal(init);
     view(()=>{
         addElement("div", ()=>{
-            const attr = attributesRef();
-            attr.id = "counter";
-            attr.onClick = ()=>counter(counter() + 1);
+            const $ = attributesRef();
+            $.id = "counter";
+            $.onClick = ()=>counter(counter() + 1);
             addText(`Button: ${counter()}`);
-        });
-        addElement("div", ()=>{
-            addText("Sex");
+            addElement("a", ()=>{
+                const $ = attributesRef();
+                $.class = "sex";
+            });
         });
     });
 });
