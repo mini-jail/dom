@@ -185,8 +185,7 @@ function modify(elt: DOMElement, callback: (attributes: any) => void): void {
   const previousElt = parentElt
   const previousAtrs = parentAtrs
   parentElt = elt
-  parentAtrs = undefined
-  if (callback.length) parentAtrs = {}
+  parentAtrs = callback.length ? {} : undefined
   callback(parentAtrs)
   if (parentAtrs) {
     for (const field in parentAtrs) {
