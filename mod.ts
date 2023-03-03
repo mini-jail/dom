@@ -47,7 +47,7 @@ export function addElement<T extends keyof HTMLElementTagNameAttributeMap>(
     parentAtrs = undefined
     if (callback.length) parentAtrs = Object.create(null)
     callback(parentAtrs as HTMLElementTagNameAttributeMap[T])
-    if (parentAtrs !== previousAtrs) attributes(elt, parentAtrs!)
+    if (parentAtrs && parentAtrs !== previousAtrs) attributes(elt, parentAtrs!)
     parentElt = previousElt
     parentAtrs = previousAtrs
   }
@@ -69,7 +69,7 @@ export function addElementNS<T extends keyof SVGElementTagNameAttributeMap>(
     parentAtrs = undefined
     if (callback.length) parentAtrs = Object.create(null)
     callback(parentAtrs as SVGElementTagNameAttributeMap[T])
-    if (parentAtrs !== previousAtrs) attributes(elt, parentAtrs!)
+    if (parentAtrs && parentAtrs !== previousAtrs) attributes(elt, parentAtrs!)
     parentElt = previousElt
     parentAtrs = previousAtrs
   }
@@ -157,7 +157,7 @@ function eventName(name: string): string {
 function objectAttribute(elt: DOMElement, field: string, object: any): void {
   for (const subField in object) {
     const value = object[subField]
-    if (value === "function") {
+    if (typeof value === "function") {
       effect<any>((subCurr) => {
         const subNext = value()
         if (subNext !== subCurr) elt[field][subField] = subNext || null
