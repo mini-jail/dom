@@ -54,7 +54,7 @@ export function addElementNS<T extends keyof SVGElementTagNameAttributeMap>(
 }
 
 export function addText(value: any): void {
-  insert(new Text(String(value)))
+  insert(document.createTextNode(String(value)))
 }
 
 export function render(rootElt: HTMLElement, callback: () => void): Cleanup {
@@ -73,7 +73,7 @@ export function view(callback: () => void): void {
   effect<DOMNode[] | undefined>((current) => {
     parentFgt = []
     callback()
-    union(<DOMElement> anchor.parentNode, anchor, current, parentFgt)
+    union(anchor, current, parentFgt)
     return parentFgt.length > 0 ? parentFgt : undefined
   })
 }
@@ -89,11 +89,11 @@ function insertBefore(elt: DOMElement, child: DOMNode, anchor: DOMNode): void {
 }
 
 function union(
-  elt: DOMElement,
   anchor: DOMNode,
   current: (DOMNode | undefined)[] | undefined,
   next: DOMNode[],
 ): void {
+  const elt = <DOMElement> anchor.parentNode
   if (current === undefined) {
     return next.forEach((node) => insertBefore(elt, node, anchor))
   }
@@ -199,10 +199,7 @@ function modify(elt: DOMElement, callback: (attributes: any) => void): void {
 type Object = { [field: string]: any }
 type Accessable<T> = T | (() => T)
 type AccessableObject<T> = { [K in keyof T]: Accessable<T[K]> }
-type DOMElement =
-  & (HTMLElement | SVGElement)
-  & { firstChild?: DOMNode }
-  & Object
+type DOMElement = (HTMLElement | SVGElement) & { firstChild: DOMNode } & Object
 type DOMNode = (Node | DOMElement) & Object
 type AnyString = object & string
 type BooleanLike = boolean | "false" | "true"
