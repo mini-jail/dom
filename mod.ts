@@ -187,6 +187,7 @@ function modify(elt: DOMElement, callback: (attributes: any) => void): void {
   parentElt = elt
   parentAttrs = callback.length ? {} : undefined
   callback(parentAttrs)
+  parentElt = undefined
   if (parentAttrs) {
     for (const field in parentAttrs) {
       attribute(elt, field, parentAttrs[field])
@@ -198,7 +199,7 @@ function modify(elt: DOMElement, callback: (attributes: any) => void): void {
 
 type Object = { [field: string]: any }
 type Accessable<T> = T | (() => T)
-type AccessableObject<T> = { [K in keyof T]: Accessable<T[K]> }
+type AccessableObject<T> = { [Field in keyof T]: Accessable<T[Field]> }
 type DOMElement = (HTMLElement | SVGElement) & { firstChild: DOMNode } & Object
 type DOMNode = (Node | DOMElement) & Object
 type AnyString = object & string
@@ -2038,7 +2039,7 @@ interface Styles {
   wordWrap?: string
   writingMode?: string
   zIndex?: string
-  [key: string]: string | undefined
+  [field: string]: string | undefined
 }
 type OnPrefixedEventAttributes<T, E> = {
   [eventName: `on:${string}`]: EventHandler<T, E>
