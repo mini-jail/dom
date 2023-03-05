@@ -70,24 +70,16 @@ export function render(rootElt: HTMLElement, callback: () => void): Cleanup {
   })!
 }
 
-class DynamicViewElement extends HTMLElement {
-  constructor(callback: () => void) {
-    super()
-    effect<DOMNode[] | undefined>((current) => {
-      const next: DOMNode[] = parentFgt = []
-      callback()
-      if (current) union(<DOMElement> this, current, next)
-      else this.append(...next)
-      parentFgt = undefined
-      return next.length > 0 ? next : undefined
-    })
-  }
-}
-
-customElements.define("dynamic-view", DynamicViewElement)
-
 export function view(callback: () => void) {
-  insert(new DynamicViewElement(callback))
+  if (parentElt === undefined) return callback()
+  const anchor = parentElt.appendChild(new Text())
+  effect<DOMNode[] | undefined>((current) => {
+    const next: DOMNode[] = parentFgt = []
+    callback()
+    union(anchor, current, next)
+    parentFgt = undefined
+    return next.length > 0 ? next : undefined
+  })
 }
 
 export function component<T extends (...args: any[]) => any>(
@@ -97,10 +89,17 @@ export function component<T extends (...args: any[]) => any>(
 }
 
 function union(
-  elt: DOMElement,
-  current: (DOMNode | undefined)[],
+  anchor: DOMNode,
+  current: (DOMNode | undefined)[] | undefined,
   next: DOMNode[],
 ): void {
+  const elt = anchor.parentNode!
+  if (current === undefined) {
+    for (const node of next) {
+      elt.insertBefore(node, anchor)
+    }
+    return
+  }
   const currentLength = current.length
   const nextLength = next.length
   let currentNode: DOMNode | undefined, i: number, j: number
