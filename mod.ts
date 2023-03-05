@@ -85,19 +85,12 @@ export function component<T extends (...args: any[]) => any>(
   return ((...args) => scoped(() => callback(...args)))
 }
 
-function insertBefore(elt: DOMElement, child: DOMNode, anchor: DOMNode): void {
-  elt.insertBefore(child, anchor)
-}
-
 function union(
-  anchor: DOMNode,
+  elt: DOMElement,
   current: (DOMNode | undefined)[] | undefined,
   next: DOMNode[],
 ): void {
-  const elt = <DOMElement> anchor.parentNode
-  if (current === undefined) {
-    return next.forEach((node) => insertBefore(elt, node, anchor))
-  }
+  if (current === undefined) return elt.append(...next)
   const currentLength = current.length
   const nextLength = next.length
   let currentNode: DOMNode | undefined, i: number, j: number
@@ -116,7 +109,7 @@ function union(
         break
       }
     }
-    insertBefore(elt, next[i], currentNode?.nextSibling || anchor)
+    elt.insertBefore(next[i], currentNode?.nextSibling || null)
   }
   while (current.length) current.pop()?.remove()
 }
