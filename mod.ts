@@ -68,13 +68,14 @@ export function render(rootElt: HTMLElement, callback: () => void): Cleanup {
 }
 
 export function view(callback: () => void): void {
-  if (parentElt === undefined) return callback()
-  const anchor = parentElt.appendChild(new Text())
-  effect<DOMNode[] | undefined>((current) => {
-    parentFgt = []
-    callback()
-    union(anchor, current, parentFgt)
-    return parentFgt.length > 0 ? parentFgt : undefined
+  addElement("slot", () => {
+    const ref = parentElt!
+    effect<DOMNode[] | undefined>((current) => {
+      parentFgt = []
+      callback()
+      union(ref, current, parentFgt)
+      return parentFgt.length > 0 ? parentFgt : undefined
+    })
   })
 }
 
