@@ -39,16 +39,19 @@ export function addElement<T extends keyof HTMLElementTagNameAttributeMap>(
   tagName: T,
   callback?: (attributes: HTMLElementTagNameAttributeMap[T]) => void,
 ): void {
-  const elt = document.createElement(tagName)
+  const elt = document.createElement(<string> tagName)
   if (callback) modify(<DOMElement> elt, callback)
   insert(elt)
 }
 
 export function addElementNS<T extends keyof SVGElementTagNameAttributeMap>(
   tagName: T,
-  callback: (attributes: SVGElementTagNameAttributeMap[T]) => void,
+  callback?: (attributes: SVGElementTagNameAttributeMap[T]) => void,
 ): void {
-  const elt = document.createElementNS("http://www.w3.org/2000/svg", tagName)
+  const elt = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    <string> tagName,
+  )
   if (callback) modify(<DOMElement> elt, callback)
   insert(elt)
 }
@@ -68,7 +71,9 @@ export function render(rootElt: HTMLElement, callback: () => void): Cleanup {
 }
 
 export function view(callback: () => void): void {
-  if (parentElt === undefined) return addElement("slot", () => view(callback))
+  if (parentElt === undefined) {
+    return addElement("dynamic-view", () => view(callback))
+  }
   const anchor = parentElt.appendChild(new Text())
   effect<DOMNode[] | undefined>((current) => {
     const next: DOMNode[] = parentFgt = []
@@ -428,6 +433,7 @@ interface HTMLElementTagNameAttributeMap {
   var: HTMLVariableAttributes
   video: HTMLVideoAttributes
   wbr: HTMLLineBreakOpportunityAttributes
+  [tagName: string]: HTMLAttributes<any>
 }
 interface SVGElementTagNameAttributeMap {
   a: SVGAttributes<SVGAElement>
@@ -493,6 +499,7 @@ interface SVGElementTagNameAttributeMap {
   tspan: SVGAttributes<SVGTSpanElement>
   use: SVGAttributes<SVGUseElement>
   view: SVGAttributes<SVGViewElement>
+  [tagName: string]: SVGAttributes<any>
 }
 interface AriaAttributes {
   role: AriaRole
