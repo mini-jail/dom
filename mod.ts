@@ -70,18 +70,24 @@ export function render(rootElt: HTMLElement, callback: () => void): Cleanup {
   })!
 }
 
-export function view(callback: () => void): void {
-  addElement("dynamic-view", () => {
-    const elt = parentElt!
+class DynamicViewElement extends HTMLElement {
+  constructor(callback: () => void) {
+    super()
     effect<DOMNode[] | undefined>((current) => {
       const next: DOMNode[] = parentFgt = []
       callback()
-      if (current) union(elt, current, next)
-      else elt.append(...next)
+      if (current) union(<DOMElement> this, current, next)
+      else this.append(...next)
       parentFgt = undefined
       return next.length > 0 ? next : undefined
     })
-  })
+  }
+}
+
+customElements.define("dynamic-view", DynamicViewElement)
+
+export function view(callback: () => void) {
+  insert(new DynamicViewElement(callback))
 }
 
 export function component<T extends (...args: any[]) => any>(
