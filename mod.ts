@@ -313,7 +313,11 @@ type AriaRole =
   | "treegrid"
   | "treeitem"
   | AnyString
-interface HTMLElementTagNameAttributeMap {
+declare global {
+  interface CustomHTMLElementTagNameAttributeMap {}
+}
+interface HTMLElementTagNameAttributeMap
+  extends CustomHTMLElementTagNameAttributeMap {
   a: HTMLAnchorAttributes
   abbr: HTMLAbbreviationAttributes
   address: HTMLAddressAttributes
