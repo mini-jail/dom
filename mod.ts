@@ -71,16 +71,16 @@ export function render(rootElt: HTMLElement, callback: () => void): Cleanup {
 }
 
 export function view(callback: () => void): void {
-  if (parentElt === undefined) {
-    return addElement("dynamic-view", () => view(callback))
-  }
-  const anchor = parentElt.appendChild(new Text())
-  effect<DOMNode[] | undefined>((current) => {
-    const next: DOMNode[] = parentFgt = []
-    callback()
-    union(anchor, current, next)
-    parentFgt = undefined
-    return next.length > 0 ? next : undefined
+  addElement("dynamic-view", () => {
+    const elt = parentElt!
+    effect<DOMNode[] | undefined>((current) => {
+      const next: DOMNode[] = parentFgt = []
+      callback()
+      if (current) union(elt, current, next)
+      else elt.append(...next)
+      parentFgt = undefined
+      return next.length > 0 ? next : undefined
+    })
   })
 }
 
@@ -91,17 +91,10 @@ export function component<T extends (...args: any[]) => any>(
 }
 
 function union(
-  anchor: DOMNode,
-  current: (DOMNode | undefined)[] | undefined,
+  elt: DOMElement,
+  current: (DOMNode | undefined)[],
   next: DOMNode[],
 ): void {
-  const elt = anchor.parentElement!
-  if (current === undefined) {
-    for (const node of next) {
-      elt.insertBefore(node, anchor)
-    }
-    return
-  }
   const currentLength = current.length
   const nextLength = next.length
   let currentNode: DOMNode | undefined, i: number, j: number
@@ -120,7 +113,7 @@ function union(
         break
       }
     }
-    elt.insertBefore(next[i], currentNode?.nextSibling || anchor)
+    elt.insertBefore(next[i], currentNode?.nextSibling || null)
   }
   while (current.length) current.pop()?.remove()
 }
