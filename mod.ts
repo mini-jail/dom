@@ -68,14 +68,13 @@ export function render(rootElt: HTMLElement, callback: () => void): Cleanup {
 }
 
 export function view(callback: () => void): void {
-  addElement("slot", () => {
-    const ref = parentElt!
-    effect<DOMNode[] | undefined>((current) => {
-      parentFgt = []
-      callback()
-      union(ref, current, parentFgt)
-      return parentFgt.length > 0 ? parentFgt : undefined
-    })
+  if (parentElt === undefined) return addElement("slot", () => view(callback))
+  const anchor = parentElt.appendChild(new Text())
+  effect<DOMNode[] | undefined>((current) => {
+    parentFgt = []
+    callback()
+    union(anchor, current, parentFgt)
+    return parentFgt.length > 0 ? parentFgt : undefined
   })
 }
 
@@ -86,11 +85,17 @@ export function component<T extends (...args: any[]) => any>(
 }
 
 function union(
-  elt: DOMElement,
+  anchor: DOMNode,
   current: (DOMNode | undefined)[] | undefined,
   next: DOMNode[],
 ): void {
-  if (current === undefined) return elt.append(...next)
+  const elt = anchor.parentElement!
+  if (current === undefined) {
+    for (const node of next) {
+      elt.insertBefore(node, anchor)
+    }
+    return
+  }
   const currentLength = current.length
   const nextLength = next.length
   let currentNode: DOMNode | undefined, i: number, j: number
@@ -109,7 +114,7 @@ function union(
         break
       }
     }
-    elt.insertBefore(next[i], currentNode?.nextSibling || null)
+    elt.insertBefore(next[i], currentNode?.nextSibling || anchor)
   }
   while (current.length) current.pop()?.remove()
 }
