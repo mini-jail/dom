@@ -71,10 +71,11 @@ export function view(callback: () => void): void {
   if (parentElt === undefined) return addElement("slot", () => view(callback))
   const anchor = parentElt.appendChild(new Text())
   effect<DOMNode[] | undefined>((current) => {
-    parentFgt = []
+    const next: DOMNode[] = parentFgt = []
     callback()
-    union(anchor, current, parentFgt)
-    return parentFgt.length > 0 ? parentFgt : undefined
+    union(anchor, current, next)
+    parentFgt = undefined
+    return next.length > 0 ? next : undefined
   })
 }
 
