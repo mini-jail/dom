@@ -24,7 +24,7 @@ function scoped(callback) {
     }
 }
 function createNode(initialValue, callback) {
-    const _node = {
+    const node = {
         value: initialValue,
         parentNode,
         children: undefined,
@@ -37,13 +37,13 @@ function createNode(initialValue, callback) {
     if (parentNode) {
         if (parentNode.children === undefined) {
             parentNode.children = [
-                _node
+                node
             ];
         } else {
-            parentNode.children.push(_node);
+            parentNode.children.push(node);
         }
     }
-    return _node;
+    return node;
 }
 function effect(callback, initialValue) {
     if (parentNode) {
@@ -204,7 +204,7 @@ function addElement(tagName, callback) {
     insert(elt);
 }
 function addText(value) {
-    insert(new Text(String(value)));
+    insert(document.createTextNode(String(value)));
 }
 function render(rootElt, callback) {
     return scoped((cleanup)=>{
@@ -219,21 +219,23 @@ function view(callback) {
     if (parentElt === undefined) return callback();
     const anchor = parentElt.appendChild(new Text());
     effect((current)=>{
-        parentFgt = [];
+        const next = parentFgt = [];
         callback();
-        union(anchor.parentNode, anchor, current, parentFgt);
-        return parentFgt.length > 0 ? parentFgt : undefined;
+        union(anchor, current, next);
+        parentFgt = undefined;
+        return next.length > 0 ? next : undefined;
     });
 }
 function component(callback) {
     return (...args)=>scoped(()=>callback(...args));
 }
-function insertBefore(elt, child, anchor) {
-    elt.insertBefore(child, anchor);
-}
-function union(elt, anchor, current, next) {
+function union(anchor, current, next) {
+    const elt = anchor.parentNode;
     if (current === undefined) {
-        return next.forEach((node)=>insertBefore(elt, node, anchor));
+        for (const node of next){
+            elt.insertBefore(node, anchor);
+        }
+        return;
     }
     const currentLength = current.length;
     const nextLength = next.length;
@@ -252,7 +254,7 @@ function union(elt, anchor, current, next) {
                 break;
             }
         }
-        insertBefore(elt, next[i], currentNode?.nextSibling || anchor);
+        elt.insertBefore(next[i], currentNode?.nextSibling || null);
     }
     while(current.length)current.pop()?.remove();
 }
@@ -311,6 +313,7 @@ function modify(elt, callback) {
     parentElt = elt;
     parentAttrs = callback.length ? {} : undefined;
     callback(parentAttrs);
+    parentElt = undefined;
     if (parentAttrs) {
         for(const field in parentAttrs){
             attribute(elt, field, parentAttrs[field]);
